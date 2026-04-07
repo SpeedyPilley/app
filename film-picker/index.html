@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Film Picker</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:#0c0f1a;color:#e8e6f0;min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
+a{color:#e8a948;text-decoration:none}
+@keyframes fu{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes si{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(232,169,72,0.3)}50%{box-shadow:0 0 24px rgba(232,169,72,0.6)}}
+@keyframes roulette{to{transform:var(--end-rot)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,useCallback}=React;
+
+/* ===== CONSTANTS ===== */
+const STREAM_LINKS={
+'Netflix':'https://www.netflix.com/search?q=',
+'Prime Video':'https://www.amazon.co.uk/s?k=TITLE&i=instant-video',
+'Disney+':'https://www.disneyplus.com/search/',
+'Apple TV+':'https://tv.apple.com/search?term=',
+'MUBI':'https://mubi.com/en/search?query=',
+'Now TV':'https://www.nowtv.com/search?q=',
+'Sky/Now TV':'https://www.nowtv.com/search?q=',
+'BBC iPlayer':'https://www.bbc.co.uk/iplayer/search?q=',
+'ITVX':'https://www.itv.com/search?q=',
+'Channel 4':'https://www.channel4.com/search?q=',
+'Paramount+':'https://www.paramountplus.com/search/?q=',
+'BritBox':'https://www.britbox.com/search?q=',
+'Shudder':'https://www.shudder.com/search?q=',
+'Curzon':'https://www.curzonhomecinema.com/search?q='
+};
+const STREAM_NAMES=['Netflix','Prime Video','Disney+','Apple TV+','BBC iPlayer','ITVX','Channel 4','Sky/Now TV','MUBI','Paramount+','BritBox','Shudder','Curzon','Cinema'];
+const POSTER_GRADS=[['#e8a948','#d35400'],['#6366f1','#a855f7'],['#22c55e','#14b8a6']];
+const LOAD_MSGS=["Scanning the archives...","Consulting the critics...","Checking the reels...","Finding hidden gems...","Cross-referencing databases...","Asking the projectionist...","Digging through the vault...","Almost there..."];
+
+const MODE_CARDS=[
+{id:'quick',icon:'⚡',title:'Quick Pick',desc:'4 key questions, 3 great films',col:'#f59e0b'},
+{id:'lightning',icon:'🎯',title:'Lightning Pick',desc:'Zero questions. Just pick me a film.',col:'#f97316'},
+{id:'group',icon:'👥',title:'Group Pick',desc:'Everyone votes, find a film for the group',col:'#6366f1'},
+{id:'roulette',icon:'🎰',title:'Film Roulette',desc:'Spin the wheel, totally random',col:'#ef4444'},
+{id:'double',icon:'🎭',title:'Double Bill',desc:'Two films that pair perfectly together',col:'#a855f7'},
+{id:'calendar',icon:'📅',title:'Film Calendar',desc:'Friday, Saturday & Sunday picks',col:'#8b5cf6'},
+{id:'party',icon:'🍿',title:'Watch Party Planner',desc:'Full evening planned around a film',col:'#22c55e'},
+{id:'debrief',icon:'🔍',title:'Film Debrief',desc:'Just watched something? Deep dive it.',col:'#3b82f6'},
+{id:'battle',icon:'⚔️',title:'Film Battle',desc:'Two films enter. One wins. You decide.',col:'#eab308'},
+{id:'dna',icon:'🧬',title:'Film DNA',desc:'What do two films secretly share?',col:'#14b8a6'},
+{id:'actor',icon:'🌟',title:'Actor Deep Dive',desc:"Any actor's essential 5 films",col:'#f43f5e'},
+{id:'soundtrack',icon:'🎵',title:'Soundtrack Finder',desc:'Find films by their music vibe',col:'#8b5cf6'},
+{id:'tot',icon:'🔀',title:'This or That',desc:'10 rapid binary choices',col:'#06b6d4'},
+{id:'autopsy',icon:'🔬',title:'Film Autopsy',desc:'Fix a film you hated',col:'#ec4899'},
+{id:'swap',icon:'🔄',title:'Mood Swap',desc:'Find the polar opposite of a film',col:'#10b981'},
+{id:'family',icon:'👨‍👩‍👧‍👦',title:'Family Film Picker',desc:'Films the whole family will love',col:'#f472b6'},
+{id:'lb_standalone',icon:'📋',title:'Import Letterboxd',desc:"Skip films you've already seen",col:'#94a3b8'}
+];
+
+const SEL_QS=[
+{id:'genre',q:'What genre are you in the mood for?',sub:'Pick one or type your own',cols:2,opts:['🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','👻 Horror','🚀 Sci-Fi','💕 Romance','🧙 Fantasy','✏️ Animation','📹 Documentary','🔫 Crime','🔎 Mystery','⚔️ War','🤠 Western','🎵 Musical','🦸 Superhero','📜 Historical','📖 Biography','⚽ Sports','👨‍👩‍👧 Family','💰 Heist','🌋 Disaster','🌑 Noir','🧠 Psychological','🏔️ Survival','🌱 Coming-of-Age','😏 Satire','⚖️ Courtroom','🛣️ Road Movie','🏚️ Dystopian','🕵️ Spy','💀 Revenge','💑 Rom-Com','🖤 Dark Comedy','🧟 Zombie','🎥 Mockumentary']},
+{id:'era',q:'When should it be from?',sub:'Pick an era',opts:['🆕 Brand New (last 2 years)','📅 Recent (last 5 years)','📺 2010s','💿 2000s','📼 90s','📻 80s','📽️ 70s or Earlier','🎲 Any Era']},
+{id:'who',q:"Who's watching?",opts:['🙋 Just Me','💑 Date Night','👯 Friends','👨‍👩‍👧 Family / Kids','🛋️ Partner (Chill Night)','🎬 Film Nerds']},
+{id:'pacing',q:'What pacing do you want?',opts:['📺 Easy Background','😊 Engaging but Light','🕯️ Slow Burn','🎯 Full Attention','💨 Fast & Relentless','🤷 Don\'t Mind']},
+{id:'tone',q:'What tone are you after?',cols:2,opts:['🌑 Dark & Gritty','☀️ Light & Fun','😢 Emotional','🌀 Mind-Bending','😊 Feel-Good','😬 Tense','😂 Funny Throughout','🥲 Bittersweet','🎪 Quirky','🏔️ Epic & Grand','💭 Dreamy','💥 Raw','🤗 Heartwarming','🤪 Absurd','🤷 Don\'t Mind']},
+{id:'calibre',q:'What calibre of film?',cols:2,opts:['🏆 Oscar Winner','⭐ Critics\' Fave','💎 Hidden Gem','🎪 Cult Classic','👍 Crowd Pleaser','🔍 Underrated','🎬 Indie','📰 True Story','📚 Book Adaptation','🎭 Festival Winner','💰 Box Office Smash','🎲 Any']},
+{id:'runtime',q:'How long have you got?',opts:['⚡ Quick (under 90 min)','⏱️ Standard (90-120 min)','🕐 Long (2-2.5h)','🎬 Epic (2.5h+)','🤷 Don\'t Care']},
+{id:'country',q:'Any country or language preference?',cols:2,opts:['🇬🇧 English Only','🇺🇸 Hollywood','🇬🇧 British','🇫🇷 French','🇰🇷 Korean','🇯🇵 Japanese','🇸🇪 Scandinavian','🇮🇳 Indian','🇪🇸 Spanish','🇮🇹 Italian','🇩🇪 German','🌍 Any (Subs Fine)','🤷 Don\'t Mind']},
+{id:'age',q:'Age rating?',opts:['U','PG','12A','15','18','🤷 Don\'t Mind']},
+{id:'adventure',q:'How adventurous are you feeling?',opts:['🛡️ Safe Pick','👉 Nudge Me','🚀 Push Me','🎲 Total Wildcard']}
+];
+
+const TEXT_QS=[
+{id:'actors',q:'Any actors or directors you love?',ph:'e.g. Florence Pugh, Denis Villeneuve...',chips:['Tom Hanks','Florence Pugh','Denzel Washington','Greta Gerwig','Brad Pitt','Saoirse Ronan','Leonardo DiCaprio','Cate Blanchett','Ryan Gosling','Viola Davis','Timothée Chalamet','Margot Robbie','Oscar Isaac','Emma Stone','Pedro Pascal','Denis Villeneuve','Christopher Nolan','Martin Scorsese','Wes Anderson','Bong Joon-ho','Jordan Peele','Emerald Fennell','Guillermo del Toro','Barry Jenkins','Taika Waititi','Yorgos Lanthimos','Ridley Scott','Hayao Miyazaki']},
+{id:'vibeFilms',q:'Any films you want that vibe from?',ph:'e.g. Parasite, Inception...',chips:['Parasite','The Shawshank Redemption','Inception','Pulp Fiction','Moonlight','Get Out','Lady Bird','The Grand Budapest Hotel','Mad Max: Fury Road','Arrival','Spirited Away','The Dark Knight','Amélie','No Country for Old Men','Everything Everywhere','The Godfather','Blade Runner 2049','Midsommar','La La Land','Whiplash','The Truman Show','Pan\'s Labyrinth','Interstellar','Knives Out','The Lighthouse','Portrait of a Lady on Fire','Dune','Aftersun']},
+{id:'streaming',q:'Where can you watch?',special:'streaming'},
+{id:'avoid',q:'Anything you want to avoid?',ph:'e.g. gore, jump scares...',chips:['Excessive violence','Gore','Jump scares','Sexual content','Animal harm','Child peril','Flashing lights','Spiders/insects','Drowning scenes','Needles','Clowns','Body horror']},
+{id:'extra',q:'Anything else we should know?',ph:'e.g. Strong female lead, twist ending...',chips:['Strong female lead','Twist ending','Set in Scotland','Beautiful cinematography','Based on true events','Non-linear timeline','Ensemble cast','Solo performance','Foreign language','Black & white','Animated','Under 90 minutes','Feel-good ending']}
+];
+
+const QUICK_STEPS=[
+{id:'genre',q:'What genre?',cols:2,opts:['🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','👻 Horror','🚀 Sci-Fi','💕 Romance','🧙 Fantasy','📹 Documentary','🔫 Crime','✏️ Animation','🎵 Musical','🎲 Anything']},
+{id:'who',q:"Who's watching?",opts:['🙋 Just Me','💑 Date Night','👯 Friends','👨‍👩‍👧 Family / Kids','🛋️ Chill Night']},
+{id:'vibe',q:'What vibe?',opts:['☀️ Light & Fun','🌑 Dark & Gritty','😢 Emotional','🌀 Mind-Bending','😊 Feel-Good','😬 Tense','🤪 Absurd','🤷 Don\'t Mind']},
+{id:'streaming',q:'Where can you watch?',special:'streaming'}
+];
+
+const TOT_QS=[
+['🗣️ Subtitles','🇬🇧 English only'],
+['🌀 Twist ending','😌 Satisfying conclusion'],
+['🏠 One location','✈️ Globe-trotting'],
+['🕯️ Slow burn','💥 Non-stop action'],
+['😈 Anti-hero','🦸 Classic hero'],
+['😢 Make me cry','😂 Make me laugh'],
+['📽️ Classic (pre-2000)','🆕 Modern (post-2010)'],
+['🤫 Intimate / small','🏔️ Epic / huge'],
+['🌑 Dark & disturbing','☀️ Light & fun'],
+['📰 True story','🧙 Total fiction']
+];
+
+const GROUP_QS=[
+{id:'genre',q:'What genre?',opts:['🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','👻 Horror','🚀 Sci-Fi','💕 Romance','🧙 Fantasy','📹 Documentary','🔫 Crime','✏️ Animation','🎲 Anything']},
+{id:'tone',q:'What tone?',opts:['☀️ Light & Fun','🌑 Dark & Gritty','😢 Emotional','🌀 Mind-Bending','😊 Feel-Good','😬 Tense','😂 Funny','🤪 Absurd','🤗 Heartwarming','🤷 Don\'t Mind']},
+{id:'pace',q:'What pace?',opts:['📺 Easy','😊 Light','🕯️ Slow Burn','💨 Fast','🤷 Don\'t Mind']},
+{id:'era',q:'When from?',opts:['🆕 Brand New','📅 Recent','📺 2010s','💿 2000s','📼 90s','📻 80s or Earlier','🎲 Any']}
+];
+
+const PARTY_STEPS=[
+{id:'film',q:'Which film are you watching?',type:'text',ph:'e.g. The Grand Budapest Hotel'},
+{id:'people',q:'How many people?',opts:['2','3-4','5-6','7+']},
+{id:'vibe',q:'What\'s the evening vibe?',opts:['🎉 Party','🛋️ Cosy','🎭 Classy','😂 Silly','🍷 Sophisticated','🤷 Surprise Me']},
+{id:'dietary',q:'Any dietary requirements?',type:'text',ph:'e.g. vegetarian, gluten-free...',chips:['Vegetarian','Vegan','Gluten-free','Nut allergy','Dairy-free','No restrictions']}
+];
+
+const DEBRIEF_STEPS=[
+{id:'film',q:'What did you watch?',type:'text',ph:'e.g. Oppenheimer'},
+{id:'think',q:'What did you think?',opts:['🤩 Loved it','👍 Liked it','😐 It was OK','👎 Didn\'t like it','🤯 Still processing','😴 Fell asleep']},
+{id:'standout',q:'What stood out most?',opts:['🎬 Performances','📸 Visuals','📝 Story','🎵 Soundtrack','🌀 Twist/ending','💬 Dialogue','😂 Humour','🌍 World-building']},
+{id:'spoilers',q:'Spoiler level?',opts:['🔒 No spoilers','🔑 Light spoilers','🔓 Full spoilers']}
+];
+
+const BATTLE_STEPS=[
+{id:'film1',q:'First film?',type:'text',ph:'e.g. The Dark Knight'},
+{id:'film2',q:'Second film?',type:'text',ph:'e.g. Inception'},
+{id:'criteria',q:'What matters most?',opts:['🎬 Overall quality','📝 Story','🎭 Acting','📸 Visuals','🎵 Soundtrack','💭 Rewatchability','🌍 Cultural impact','😂 Entertainment']},
+{id:'serious',q:'How serious is this?',opts:['🎓 Dead serious','😊 Fun debate','🤪 Completely silly']}
+];
+
+const DNA_STEPS=[
+{id:'film1',q:'First film?',type:'text',ph:'e.g. Blade Runner'},
+{id:'film2',q:'Second film?',type:'text',ph:'e.g. Her'},
+{id:'hunch',q:'Any hunch what they share?',type:'text',ph:'e.g. loneliness, AI themes...',chips:['Loneliness','Identity','Power','Family','Redemption','Loss','Freedom','Obsession']},
+{id:'mode',q:'Surprise or confirm?',opts:['🎁 Surprise me','✅ Confirm my hunch']}
+];
+
+const DOUBLE_STEPS=[
+{id:'style',q:'What pairing style?',opts:['🔗 Thematic pair','🔄 Opposite vibes','📈 Evolution','🌍 Same world','🎭 Same director','🤷 Surprise me']},
+{id:'genre',q:'What genre?',opts:['🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','👻 Horror','🚀 Sci-Fi','💕 Romance','🎲 Any']},
+{id:'era',q:'What era?',opts:['🆕 Modern','📼 Classic','🔀 Mix of eras','🤷 Any']},
+{id:'runtime',q:'Total runtime budget?',opts:['⚡ Under 3 hours','⏱️ 3-4 hours','🎬 4+ hours','🤷 Don\'t care']}
+];
+
+const ACTOR_STEPS=[
+{id:'actor',q:'Which actor?',type:'text',ph:'e.g. Cate Blanchett',chips:['Tom Hanks','Meryl Streep','Denzel Washington','Cate Blanchett','Leonardo DiCaprio','Viola Davis','Brad Pitt','Florence Pugh','Ryan Gosling','Saoirse Ronan','Oscar Isaac','Tilda Swinton']},
+{id:'love',q:'What do you love about them?',opts:['🎭 Range','💪 Intensity','😂 Comedy','💔 Vulnerability','😎 Charisma','🤷 Everything']},
+{id:'era',q:'Which career era?',opts:['🌱 Early career','⭐ Peak years','🆕 Recent work','📊 Full career','🤷 Any']},
+{id:'depth',q:'How deep?',opts:['🏊 Surface (hits only)','🤿 Medium','🏊‍♂️ Deep cuts','🕳️ Complete filmography']}
+];
+
+const SOUNDTRACK_STEPS=[
+{id:'sound',q:'Describe the sound you want',type:'text',ph:'e.g. dreamy synth, jazz noir...',chips:['Dreamy synth','Jazz noir','Epic orchestral','Indie folk','Electronic','80s vibes','Classical','Hip-hop','Ambient','Punk energy','Latin','Minimalist']},
+{id:'genre',q:'Film genre?',opts:['🎬 Action','🎭 Drama','😰 Thriller','💕 Romance','🚀 Sci-Fi','👻 Horror','😂 Comedy','🎲 Any']},
+{id:'era',q:'Music era?',opts:['🆕 Modern','📼 80s/90s','📽️ Classic','🔀 Timeless','🤷 Any']},
+{id:'importance',q:'How important is music to the film?',opts:['🎵 Central to the story','🎶 Memorable soundtrack','🔊 Great background','🤷 Don\'t mind']}
+];
+
+const AUTOPSY_STEPS=[
+{id:'film',q:'Which film did you hate?',type:'text',ph:'e.g. The film that let you down...'},
+{id:'wrong',q:'What was wrong with it?',opts:['📝 Terrible story','🎭 Bad acting','🐌 Too slow','💨 Too rushed','🌀 Made no sense','😴 Boring','🤢 Too much (gore/etc)','💔 Disappointing ending']},
+{id:'hoped',q:'What were you hoping for?',opts:['🎬 Better version of same thing','🔄 Same concept done right','😊 Something lighter','🌑 Something darker','🤯 Something smarter','💪 Something with more heart']},
+{id:'fixGenre',q:'Genre for the fix?',opts:['🔄 Same genre','🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','🚀 Sci-Fi','🎲 Surprise me']}
+];
+
+const SWAP_STEPS=[
+{id:'film',q:'Film you love?',type:'text',ph:'e.g. The film you want the opposite of...'},
+{id:'love',q:'What do you love about it?',opts:['📝 Story','🎭 Characters','🌍 World','🎵 Soundtrack','📸 Visuals','😂 Humour','💔 Emotion','🌀 Mind-bending']},
+{id:'opposite',q:'How opposite?',opts:['🔄 Gentle flip','↔️ Clear opposite','🌀 Total polar opposite','🤪 Chaotic swap']},
+{id:'avoidGenre',q:'Genres to avoid?',type:'text',ph:'e.g. horror, musical...',chips:['Horror','Musical','Documentary','Animation','Western','War']}
+];
+
+const FAMILY_STEPS=[
+{id:'ages',q:'How old are the kids?',type:'text',ph:'e.g. 6 and 10',chips:['Under 5','5-7','8-10','11-13','Mixed ages','Teenagers']},
+{id:'into',q:'What are they into?',opts:['🦸 Superheroes','🧙 Magic/fantasy','🐾 Animals','🚀 Space/sci-fi','😂 Comedy','🎵 Musical','⚽ Sports','🤷 A bit of everything']},
+{id:'avoid',q:'Anything to avoid?',type:'text',ph:'e.g. scary scenes, complex themes...',chips:['Scary scenes','Violence','Complex themes','Sad endings','Rude humour','Nothing specific']},
+{id:'adults',q:'Should adults enjoy it too?',opts:['🎯 Absolutely','😊 Would be nice','👶 Kid-focused is fine']}
+];
+
+
+/* ===== UTILITIES ===== */
+const parseCSVLine=s=>{const r=[];let c='',q=false;for(let i=0;i<s.length;i++){if(s[i]==='"'){q=!q}else if(s[i]===','&&!q){r.push(c);c=''}else{c+=s[i]}}r.push(c);return r.map(x=>x.trim().replace(/^"|"$/g,''))};
+
+const parseLBCsv=text=>{
+const lines=text.split('\n').filter(l=>l.trim());
+if(lines.length<2)return[];
+const hdr=parseCSVLine(lines[0]).map(h=>h.toLowerCase());
+const ti=hdr.findIndex(h=>/^(name|title|film)/.test(h));
+const yi=hdr.findIndex(h=>/^year/.test(h));
+const ri=hdr.findIndex(h=>/^rating/.test(h));
+if(ti<0)return[];
+const seen=new Set(),films=[];
+for(let i=1;i<lines.length;i++){
+const cols=parseCSVLine(lines[i]);
+const title=cols[ti]?.trim();
+if(!title||seen.has(title))continue;
+seen.add(title);
+let rating=ri>=0?parseFloat(cols[ri]):null;
+if(rating&&rating>5)rating=rating/2;
+films.push({title,year:yi>=0?cols[yi]?.trim():'',rating:isNaN(rating)?null:rating});
+}return films};
+
+const loadJSZip=()=>new Promise((res,rej)=>{
+if(window.JSZip)return res(window.JSZip);
+const s=document.createElement('script');
+s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+s.onload=()=>res(window.JSZip);s.onerror=rej;document.head.appendChild(s)});
+
+const parseLBZip=async file=>{
+const JSZip=await loadJSZip();
+const zip=await JSZip.loadAsync(file);
+for(const name of['ratings.csv','diary.csv','watched.csv','reviews.csv']){
+const f=zip.file(name);if(f){const t=await f.async('text');const r=parseLBCsv(t);if(r.length)return r}}
+return[]};
+
+const callAI=async(key,prompt,maxTokens=2000)=>{
+const res=await fetch("https://api.anthropic.com/v1/messages",{
+method:"POST",
+headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})
+});
+if(!res.ok)throw new Error("API error: "+res.status);
+const data=await res.json();
+const text=data.content.filter(b=>b.type==="text").map(b=>b.text).join("");
+const clean=text.replace(/```json|```/g,"").trim();
+const m=clean.match(/\{[\s\S]*\}/);
+return JSON.parse(m?m[0]:clean)};
+
+const streamUrl=(service,title)=>{
+const t=encodeURIComponent(title);
+const link=STREAM_LINKS[service];
+if(!link)return null;
+if(service==='Prime Video')return link.replace('TITLE',t);
+return link+t};
+
+/* ===== SHARED COMPONENTS ===== */
+const sty={
+shell:{minHeight:'100vh',background:'linear-gradient(180deg,#0c0f1a 0%,#141829 100%)',maxWidth:480,margin:'0 auto',padding:16,position:'relative'},
+hdr:{position:'sticky',top:0,zIndex:100,backdropFilter:'blur(12px)',background:'rgba(12,15,26,0.8)',margin:'-16px -16px 16px',padding:'12px 16px',display:'flex',alignItems:'center',borderBottom:'1px solid rgba(255,255,255,0.06)'},
+hdrTitle:{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:600,flex:1,textAlign:'center',marginRight:32},
+backBtn:{background:'none',border:'none',color:'#9b97b0',fontSize:20,cursor:'pointer',padding:'4px 8px',width:32},
+card:{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:16,padding:16,marginBottom:12},
+btnP:{background:'linear-gradient(135deg,#e8a948,#f0c06e)',color:'#0c0f1a',border:'none',padding:'14px 24px',borderRadius:12,cursor:'pointer',fontFamily:"'Outfit',sans-serif",fontSize:15,fontWeight:600,width:'100%',textAlign:'center'},
+btnS:{background:'transparent',border:'1px solid rgba(255,255,255,0.15)',color:'#e8e6f0',padding:'12px 24px',borderRadius:12,cursor:'pointer',fontFamily:"'Outfit',sans-serif",fontSize:15,width:'100%',textAlign:'center'},
+badge:{padding:'4px 10px',borderRadius:8,fontSize:13,fontWeight:500,display:'inline-block'},
+sub:{color:'#9b97b0',fontSize:14},
+tert:{color:'#6b6780',fontSize:13},
+input:{width:'100%',padding:'12px 16px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:12,color:'#e8e6f0',fontFamily:"'Outfit',sans-serif",fontSize:15,outline:'none'},
+chip:{padding:'6px 12px',borderRadius:20,fontSize:13,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#9b97b0',cursor:'pointer',whiteSpace:'nowrap'},
+progOuter:{height:3,background:'rgba(255,255,255,0.06)',borderRadius:3,marginBottom:8},
+progInner:{height:'100%',background:'linear-gradient(90deg,#e8a948,#f0c06e)',borderRadius:3,transition:'width 0.3s'}
+};
+
+const Shell=({children})=><div style={sty.shell}>{children}</div>;
+const Hdr=({title,onBack})=><div style={sty.hdr}>{onBack&&<button style={sty.backBtn} onClick={onBack}>←</button>}<div style={{...sty.hdrTitle,marginRight:onBack?32:0}}>{title}</div></div>;
+const ProgBar=({step,total})=><div><div style={{...sty.tert,marginBottom:4}}>Step {step} of {total}</div><div style={sty.progOuter}><div style={{...sty.progInner,width:`${(step/total)*100}%`}}/></div></div>;
+
+const Btn=({primary,full,disabled,children,style:es,...props})=>{
+const base=primary?sty.btnP:sty.btnS;
+return <button style={{...base,...(full?{width:'100%'}:{width:'auto'}),...(disabled?{opacity:0.5,pointerEvents:'none'}:{}),transition:'all 0.2s',...es}} disabled={disabled} {...props}>{children}</button>};
+
+const Loader=()=>{
+const[mi,setMi]=useState(0);
+useEffect(()=>{const iv=setInterval(()=>setMi(i=>(i+1)%LOAD_MSGS.length),2500);return()=>clearInterval(iv)},[]);
+return<div style={{textAlign:'center',padding:'80px 20px',animation:'fi 0.3s ease'}}><div style={{fontSize:48,animation:'spin 2s linear infinite',display:'inline-block'}}>🎬</div><p style={{...sty.sub,marginTop:20,animation:'pulse 1.5s ease-in-out infinite'}}>{LOAD_MSGS[mi]}</p><div style={{height:4,background:'rgba(255,255,255,0.06)',borderRadius:4,marginTop:20,overflow:'hidden'}}><div style={{height:'100%',width:'60%',background:'linear-gradient(90deg,transparent,#e8a948,transparent)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/></div></div>};
+
+const StreamCheck=({sel,onToggle})=>{
+const allSel=sel.length===0;
+return<div><div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>{STREAM_NAMES.map(s=><button key={s} onClick={()=>onToggle(s)} style={{...sty.chip,background:sel.includes(s)?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:sel.includes(s)?'#e8a948':'rgba(255,255,255,0.1)',color:sel.includes(s)?'#e8a948':'#9b97b0'}}>{s}</button>)}</div><button onClick={()=>onToggle('ALL')} style={{...sty.chip,background:allSel?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:allSel?'#e8a948':'rgba(255,255,255,0.1)',color:allSel?'#e8a948':'#9b97b0'}}>All / Don't Mind</button></div>};
+
+
+/* ===== WIZARD COMPONENT ===== */
+const Wizard=({icon,title,steps,onDone,strSel,onStrToggle})=>{
+const[step,setStep]=useState(0);
+const[answers,setAnswers]=useState({});
+const[text,setText]=useState('');
+const[showCustom,setShowCustom]=useState(false);
+const cur=steps[step];
+
+const next=val=>{
+const na={...answers,[cur.id]:val};
+setAnswers(na);setText('');setShowCustom(false);
+if(step<steps.length-1)setStep(step+1);else onDone(na)};
+const skip=()=>{setText('');setShowCustom(false);if(step<steps.length-1)setStep(step+1);else onDone(answers)};
+const back=()=>{if(step>0){setStep(step-1);setText('')}};
+
+return<Shell><Hdr title={title} onBack={step>0?back:null}/><ProgBar step={step+1} total={steps.length}/><div key={step} style={{animation:'si 0.3s ease',padding:'20px 0'}}>
+<div style={{textAlign:'center',fontSize:48,marginBottom:16}}>{icon}</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,textAlign:'center',marginBottom:8}}>{cur.q}</h2>
+{cur.sub&&<p style={{...sty.sub,textAlign:'center',marginBottom:16}}>{cur.sub}</p>}
+
+{cur.special==='streaming'?<div style={{padding:'16px 0'}}><StreamCheck sel={strSel||[]} onToggle={onStrToggle}/><div style={{marginTop:16,display:'flex',gap:8}}><Btn primary onClick={()=>next(strSel||[])}>Next</Btn><Btn onClick={skip}>Skip</Btn></div></div>
+
+:cur.type==='text'?<div style={{padding:'16px 0'}}>
+<input style={sty.input} value={text} onChange={e=>setText(e.target.value)} placeholder={cur.ph||''} onKeyDown={e=>e.key==='Enter'&&text.trim()&&next(text.trim())}/>
+{cur.chips&&<div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:12}}>{cur.chips.map(c=><button key={c} style={sty.chip} onClick={()=>setText(t=>t?t+', '+c:c)}>{c}</button>)}</div>}
+<div style={{display:'flex',gap:8,marginTop:16}}><Btn primary onClick={()=>next(text.trim())} disabled={!text.trim()}>Next</Btn><Btn onClick={skip}>Skip</Btn></div></div>
+
+:<div><div style={{display:'grid',gridTemplateColumns:cur.cols===1?'1fr':'1fr 1fr',gap:8,marginTop:16}}>
+{(cur.opts||[]).map((o,i)=>{const label=typeof o==='string'?o:o.l;const val=typeof o==='string'?o:o.v;
+return<button key={i} onClick={()=>next(val)} style={{...sty.card,cursor:'pointer',textAlign:'center',fontSize:14,padding:'14px 8px',transition:'all 0.15s',border:'1px solid rgba(255,255,255,0.08)'}}
+onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{label}</button>})}
+</div>
+{!cur.special&&cur.type!=='text'&&<div style={{marginTop:12}}><button style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:13}} onClick={()=>setShowCustom(!showCustom)}>✏️ Type your own</button>
+{showCustom&&<div style={{display:'flex',gap:8,marginTop:8}}><input style={{...sty.input,flex:1}} value={text} onChange={e=>setText(e.target.value)} placeholder="Type here..." onKeyDown={e=>e.key==='Enter'&&text.trim()&&next(text.trim())}/><Btn primary onClick={()=>text.trim()&&next(text.trim())} style={{width:'auto',padding:'12px 16px'}}>Use</Btn></div>}
+</div>}
+<button onClick={skip} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',display:'block',margin:'16px auto',fontSize:13}}>Skip →</button>
+</div>}
+</div></Shell>};
+
+/* ===== FILM CARD (FC) ===== */
+const FC=({film,idx=0,onSeenIt,onCompare,comparing,compact,loading})=>{
+const[showWhy,setShowWhy]=useState(false);
+const g=POSTER_GRADS[idx%3];
+if(!film)return null;
+const t=film.title||'Untitled';
+
+return<div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ease',opacity:loading?0.4:1,transition:'opacity 0.3s'}}>
+<div style={{height:180,background:`linear-gradient(135deg,${g[0]},${g[1]})`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',padding:20}}>
+<div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:'#fff',textAlign:'center',textShadow:'0 2px 12px rgba(0,0,0,0.3)',maxWidth:'80%'}}>{t}</div>
+{film.runtime&&<div style={{position:'absolute',top:12,right:12,background:'rgba(0,0,0,0.5)',padding:'4px 10px',borderRadius:8,fontSize:12,color:'#fff'}}>{film.runtime}</div>}
+</div>
+<div style={{padding:16}}>
+<div style={{fontSize:20,fontWeight:700}}>{t}</div>
+<div style={{...sty.sub,marginTop:4}}>{[film.year,film.genre,film.director].filter(Boolean).join(' · ')}</div>
+<div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:12}}>
+{film.rottenTomatoes&&<span style={{...sty.badge,background:'rgba(232,84,84,0.15)',color:'#e85454'}}>🍅 {film.rottenTomatoes}</span>}
+{film.imdb&&<a href={`https://www.imdb.com/find/?q=${encodeURIComponent(t)}`} target="_blank" rel="noopener" style={{...sty.badge,background:'rgba(232,169,72,0.15)',color:'#e8a948',textDecoration:'none'}}>⭐ {film.imdb}</a>}
+{film.letterboxd&&<a href={`https://letterboxd.com/search/${encodeURIComponent(t)}/`} target="_blank" rel="noopener" style={{...sty.badge,background:'rgba(74,222,128,0.15)',color:'#4ade80',textDecoration:'none'}}>💚 {film.letterboxd}</a>}
+{film.ageRating&&<span style={{...sty.badge,background:'rgba(168,85,247,0.15)',color:'#a855f7'}}>{film.ageRating}</span>}
+</div>
+{film.streaming&&film.streaming!=='Cinema'&&(()=>{const url=streamUrl(film.streaming,t);return url?<a href={url} target="_blank" rel="noopener" style={{...sty.badge,background:'rgba(232,169,72,0.12)',color:'#e8a948',marginTop:8,display:'inline-block',textDecoration:'none'}}>📺 {film.streaming}</a>:<span style={{...sty.badge,background:'rgba(232,169,72,0.12)',color:'#e8a948',marginTop:8,display:'inline-block'}}>🎬 {film.streaming}</span>})()}
+{film.streaming==='Cinema'&&<span style={{...sty.badge,background:'rgba(232,169,72,0.12)',color:'#e8a948',marginTop:8,display:'inline-block'}}>🎬 Cinema</span>}
+<p style={{...sty.sub,marginTop:12,lineHeight:1.6}}>{film.description}</p>
+{film.soundtrackNote&&<div style={{background:'rgba(232,169,72,0.08)',borderRadius:10,padding:12,marginTop:12}}><p style={{fontSize:13,color:'#e8a948'}}>🎵 {film.soundtrackNote}</p>{film.keyTracks&&<p style={{...sty.tert,marginTop:4}}>Key tracks: {film.keyTracks}</p>}</div>}
+{film.parentNote&&<div style={{background:'rgba(99,102,241,0.08)',borderRadius:10,padding:12,marginTop:12}}><p style={{fontSize:13,color:'#818cf8'}}>👪 {film.parentNote}</p></div>}
+{!compact&&<>
+<div style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:16,paddingTop:12,display:'flex',gap:8,flexWrap:'wrap'}}>
+{film.whyThisFilm&&<button onClick={()=>setShowWhy(!showWhy)} style={{...sty.chip,color:showWhy?'#e8a948':'#9b97b0',borderColor:showWhy?'#e8a948':'rgba(255,255,255,0.1)'}}>💡 Why this film?</button>}
+{onCompare&&<button onClick={onCompare} style={{...sty.chip,color:comparing?'#e8a948':'#9b97b0',borderColor:comparing?'#e8a948':'rgba(255,255,255,0.1)'}}>⚖️ Compare</button>}
+{onSeenIt&&<button onClick={onSeenIt} style={{...sty.chip,background:'rgba(232,84,84,0.1)',color:'#e85454',borderColor:'rgba(232,84,84,0.2)'}}>👁️ Seen it</button>}
+</div>
+{showWhy&&film.whyThisFilm&&<div style={{background:'rgba(232,169,72,0.08)',borderRadius:10,padding:12,marginTop:8,animation:'fi 0.3s ease'}}><p style={{fontSize:14,color:'#e8a948'}}>{film.whyThisFilm}</p></div>}
+</>}
+</div></div>};
+
+/* ===== LETTERBOXD IMPORT COMPONENT ===== */
+const LBImport=({lb,onDone,onSkip})=>{
+const[dragging,setDragging]=useState(false);
+const[err,setErr]=useState(null);
+const[loading,setLoading]=useState(false);
+const fileRef=useRef();
+
+const handleFile=async file=>{
+setErr(null);setLoading(true);
+try{
+let films;
+if(file.name.endsWith('.zip')){films=await parseLBZip(file)}
+else if(file.name.endsWith('.csv')){const t=await file.text();films=parseLBCsv(t)}
+else{setErr('Please upload a .zip or .csv file');setLoading(false);return}
+if(!films.length){setErr('No films found in file');setLoading(false);return}
+onDone(films);
+}catch(e){setErr('Failed to parse file: '+e.message)}
+setLoading(false)};
+
+const onDrop=e=>{e.preventDefault();setDragging(false);const f=e.dataTransfer.files[0];if(f)handleFile(f)};
+const onChange=e=>{const f=e.target.files[0];if(f)handleFile(f)};
+
+return<Shell><Hdr title="Import Letterboxd"/>
+<div style={{textAlign:'center',padding:'40px 0',animation:'fu 0.4s ease'}}>
+<div style={{fontSize:48,marginBottom:16}}>📋</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",marginBottom:8}}>Import Your Letterboxd</h2>
+<p style={sty.sub}>So we don't recommend films you've already seen</p>
+{lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'12px 16px',marginTop:16,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+<span style={{color:'#4ade80',fontSize:14}}>✅ {lb.length} Letterboxd films loaded</span>
+<button onClick={()=>onDone([])} style={{background:'none',border:'none',color:'#e85454',cursor:'pointer',fontSize:13}}>Clear</button></div>}
+<div onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={onDrop} onClick={()=>fileRef.current.click()}
+style={{...sty.card,marginTop:20,padding:'40px 20px',cursor:'pointer',borderColor:dragging?'#e8a948':'rgba(255,255,255,0.08)',borderStyle:'dashed',textAlign:'center'}}>
+<input ref={fileRef} type="file" accept=".zip,.csv" style={{display:'none'}} onChange={onChange}/>
+{loading?<div style={{animation:'pulse 1.5s infinite'}}>Processing...</div>
+:<><div style={{fontSize:32,marginBottom:8}}>📁</div><p style={sty.sub}>Drop your Letterboxd .zip or .csv here</p><p style={sty.tert}>or tap to browse</p></>}
+</div>
+{err&&<p style={{color:'#e85454',fontSize:14,marginTop:12}}>❌ {err}</p>}
+<p style={{...sty.tert,marginTop:16}}>Get your export from <a href="https://letterboxd.com/settings/data/" target="_blank" rel="noopener">letterboxd.com/settings/data/</a></p>
+<div style={{display:'flex',gap:8,marginTop:24}}>
+{lb.length>0&&<Btn primary onClick={()=>onSkip()}>Continue with {lb.length} films</Btn>}
+<Btn onClick={onSkip}>{lb.length>0?'Continue':'Skip'}</Btn></div>
+</div></Shell>};
+
+
+/* ===== MAIN APP COMPONENT ===== */
+const App=()=>{
+const[apiKey,setApiKey]=useState('');
+const[showKey,setShowKey]=useState(false);
+const[phase,setPhase]=useState('home');
+const[step,setStep]=useState(0);
+const[ans,setAns]=useState({});
+const[cIns,setCIns]=useState({});
+const[tAns,setTAns]=useState({});
+const[strSel,setStrSel]=useState([]);
+const[movies,setMovies]=useState(null);
+const[lb,setLb]=useState([]);
+const[lastA,setLastA]=useState(null);
+const[rIdx,setRIdx]=useState(-1);
+const[soL,setSoL]=useState(false);
+const[dis,setDis]=useState([]);
+const[cmp,setCmp]=useState(new Set());
+const[h2h,setH2h]=useState(null);
+const[h2hData,setH2hData]=useState(null);
+const[expanded,setExpanded]=useState({});
+const[moreOpen,setMoreOpen]=useState(false);
+const[groupNames,setGroupNames]=useState(['','']);
+const[groupStep,setGroupStep]=useState(0);
+const[groupAnswers,setGroupAnswers]=useState({});
+const[customResults,setCustomResults]=useState(null);
+const[rouletteSpinning,setRouletteSpinning]=useState(false);
+const[rouletteDeg,setRouletteDeg]=useState(0);
+const[totStep,setTotStep]=useState(0);
+const[totAnswers,setTotAnswers]=useState([]);
+const[err,setErr]=useState(null);
+const[copied,setCopied]=useState(false);
+const[currentMode,setCurrentMode]=useState(null);
+const[selCustomText,setSelCustomText]=useState('');
+const[selShowCust,setSelShowCust]=useState(false);
+const[textInput,setTextInput]=useState('');
+
+const home=()=>{setPhase('home');setStep(0);setAns({});setCIns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setExpanded({});setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('')};
+
+const filmJSON=`{"reason":"...","films":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2-3 sentences","whyThisFilm":"1 sentence referencing preferences","rottenTomatoes":"...%","imdb":".../10","letterboxd":".../5","ageRating":"...","streaming":"..."}]}`;
+
+const buildPickerPrompt=(a,count=3)=>{
+let p=`You are a film recommendation expert. Based on these preferences, recommend exactly ${count} films.\n\n`;
+Object.entries(a).forEach(([k,v])=>{if(v&&v!==''){p+=`${k}: ${typeof v==='object'?JSON.stringify(v):v}\n`}});
+if(lb.length>0){
+const watched=lb.slice(0,150).map(f=>f.title).join(', ');
+const top=lb.filter(f=>f.rating).sort((a,b)=>b.rating-a.rating).slice(0,20).map(f=>`${f.title} (${f.rating}★)`).join(', ');
+const recent=lb.slice(-15).map(f=>f.title).join(', ');
+p+=`\nWatched films (NEVER recommend any of these): ${watched}\nTop-rated: ${top}\nRecent: ${recent}\n`}
+if(dis.length>0)p+=`\nAlso exclude: ${dis.join(', ')}\n`;
+p+=`\nRules: Real films only, real data only. ${count} different films. whyThisFilm must reference specific preferences. Match era/runtime/language/age rating strictly. If age rating specified, only recommend that or lower. Use exact streaming service name.\n`;
+p+=`Reply ONLY JSON: ${filmJSON}`;
+return p};
+
+const fetchFilms=async(a,count=3)=>{
+setPhase('loading');setLastA(a);
+try{const r=await callAI(apiKey,buildPickerPrompt(a,count));setMovies(r);setPhase('results')}
+catch(e){setErr(e.message);setPhase('error')}};
+
+const replaceFn=async(idx)=>{
+if(rIdx>=0)return;
+setRIdx(idx);
+const film=movies.films[idx];
+const newDis=[...dis,film.title];setDis(newDis);
+try{
+const p=buildPickerPrompt({...lastA,excludeExtra:newDis.join(', ')},1).replace(`exactly 1`,`exactly 1 replacement`);
+const r=await callAI(apiKey,p);
+if(r.films&&r.films[0]){const nf=[...movies.films];nf[idx]=r.films[0];setMovies({...movies,films:nf})}
+}catch(e){setErr(e.message)}
+setRIdx(-1)};
+
+const secondOpinion=async(direction)=>{
+setSoL(true);
+try{
+const p=buildPickerPrompt(lastA).replace('Based on these preferences',`Based on these preferences, but this time go ${direction}. Give completely different films from before`);
+const r=await callAI(apiKey,p);setMovies(r);setDis([]);setCmp(new Set())
+}catch(e){setErr(e.message)}
+setSoL(false)};
+
+const compareFilms=async()=>{
+const indices=[...cmp];
+const fA=movies.films[indices[0]],fB=movies.films[indices[1]];
+setH2h({a:fA,b:fB});setH2hData(null);setPhase('h2h');
+try{
+const p=`Compare these two films:\nFilm A: ${fA.title} (${fA.year})\nFilm B: ${fB.title} (${fB.year})\n\nGive a verdict. Reply ONLY JSON: {"verdict":"2 sentences comparing them","winner":"Film title","winReason":"1 sentence"}`;
+const r=await callAI(apiKey,p);setH2hData(r)
+}catch(e){setErr(e.message);setPhase('error')}};
+
+const sharePicks=()=>{
+if(!movies||!movies.films)return;
+const txt=movies.films.map((f,i)=>`${i+1}. ${f.title} (${f.year})\n   Director: ${f.director}\n   ${f.rottenTomatoes?'RT: '+f.rottenTomatoes:''} ${f.imdb?'IMDb: '+f.imdb:''} ${f.letterboxd?'LB: '+f.letterboxd:''}\n   ${f.description}`).join('\n\n');
+navigator.clipboard.writeText('🎬 Film Picks\n\n'+txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500)})};
+
+const strToggle=s=>{if(s==='ALL'){setStrSel([])}else{setStrSel(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s])}};
+
+/* ===== FULL PICKER SELECT QUESTIONS ===== */
+const renderSelectQ=()=>{
+const q=SEL_QS[step];
+const advance=val=>{setSelCustomText('');setSelShowCust(false);setAns({...ans,[q.id]:val});if(step<SEL_QS.length-1)setStep(step+1);else setStep(SEL_QS.length)};
+const skipQ=()=>{setSelCustomText('');setSelShowCust(false);if(step<SEL_QS.length-1)setStep(step+1);else setStep(SEL_QS.length)};
+
+return<Shell><Hdr title="Film Picker" onBack={step>0?()=>{setSelCustomText('');setSelShowCust(false);setStep(step-1)}:()=>home()}/><ProgBar step={step+1} total={SEL_QS.length+TEXT_QS.length}/>
+<div key={step} style={{animation:'si 0.3s ease',padding:'12px 0'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,textAlign:'center',marginBottom:6}}>{q.q}</h2>
+{q.sub&&<p style={{...sty.sub,textAlign:'center',marginBottom:12}}>{q.sub}</p>}
+<div style={{display:'grid',gridTemplateColumns:q.cols===2?'1fr 1fr':'1fr',gap:8}}>
+{q.opts.map((o,i)=><button key={i} onClick={()=>advance(o)} style={{...sty.card,cursor:'pointer',textAlign:'center',fontSize:14,padding:'12px 8px'}} onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{o}</button>)}
+</div>
+<div style={{marginTop:12}}><button style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:13}} onClick={()=>setSelShowCust(!selShowCust)}>✏️ Type your own</button>
+{selShowCust&&<div style={{display:'flex',gap:8,marginTop:8}}><input style={{...sty.input,flex:1}} value={selCustomText} onChange={e=>setSelCustomText(e.target.value)} placeholder="Type here..." onKeyDown={e=>e.key==='Enter'&&selCustomText.trim()&&advance(selCustomText.trim())}/><Btn primary onClick={()=>selCustomText.trim()&&advance(selCustomText.trim())} style={{width:'auto',padding:'12px 16px'}}>Use</Btn></div>}
+</div>
+<button onClick={skipQ} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',display:'block',margin:'16px auto',fontSize:13}}>Skip →</button>
+</div></Shell>};
+
+/* ===== FULL PICKER TEXT QUESTIONS ===== */
+const renderTextQ=()=>{
+const qi=step-SEL_QS.length;
+const q=TEXT_QS[qi];
+const advance=val=>{setTextInput('');setTAns({...tAns,[q.id]:val});if(qi<TEXT_QS.length-1)setStep(step+1);else{fetchFilms({...ans,...tAns,[q.id]:val,streaming:strSel})}};
+const skipQ=()=>{setTextInput('');if(qi<TEXT_QS.length-1)setStep(step+1);else{fetchFilms({...ans,...tAns,streaming:strSel})}};
+
+if(q.special==='streaming')return<Shell><Hdr title="Film Picker" onBack={()=>setStep(step-1)}/><ProgBar step={step+1} total={SEL_QS.length+TEXT_QS.length}/>
+<div style={{animation:'si 0.3s ease',padding:'20px 0'}}><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,textAlign:'center',marginBottom:16}}>{q.q}</h2>
+<StreamCheck sel={strSel} onToggle={strToggle}/>
+<div style={{display:'flex',gap:8,marginTop:20}}><Btn primary onClick={()=>advance(strSel)}>Next</Btn><Btn onClick={skipQ}>Skip</Btn></div></div></Shell>;
+
+return<Shell><Hdr title="Film Picker" onBack={()=>{setTextInput('');setStep(step-1)}}/><ProgBar step={step+1} total={SEL_QS.length+TEXT_QS.length}/>
+<div key={step} style={{animation:'si 0.3s ease',padding:'20px 0'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,textAlign:'center',marginBottom:16}}>{q.q}</h2>
+{qi===TEXT_QS.length-1?<textarea style={{...sty.input,minHeight:80,resize:'vertical'}} value={textInput} onChange={e=>setTextInput(e.target.value)} placeholder={q.ph}/>
+:<input style={sty.input} value={textInput} onChange={e=>setTextInput(e.target.value)} placeholder={q.ph} onKeyDown={e=>e.key==='Enter'&&textInput.trim()&&advance(textInput.trim())}/>}
+{q.chips&&<div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:12}}>{q.chips.map(c=><button key={c} style={sty.chip} onClick={()=>setTextInput(t=>t?t+', '+c:c)}>{c}</button>)}</div>}
+<div style={{display:'flex',gap:8,marginTop:16}}><Btn primary onClick={()=>advance(textInput.trim())} disabled={!textInput.trim()}>Next</Btn><Btn onClick={skipQ}>Skip</Btn></div>
+</div></Shell>};
+
+
+/* ===== RESULTS SCREEN ===== */
+const renderResults=()=>{
+if(!movies||!movies.films)return<Shell><p>No results</p><Btn primary onClick={home}>Home</Btn></Shell>;
+const cmpArr=[...cmp];
+
+return<Shell><Hdr title="Your Picks" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{movies.reason&&<p style={{...sty.sub,textAlign:'center',marginBottom:20,fontStyle:'italic'}}>"{movies.reason}"</p>}
+{movies.films.map((f,i)=><FC key={f.title+i} film={f} idx={i} loading={rIdx===i}
+onSeenIt={()=>replaceFn(i)}
+onCompare={()=>{const ns=new Set(cmp);if(ns.has(i))ns.delete(i);else{if(ns.size>=2)return;ns.add(i)}setCmp(ns)}}
+comparing={cmp.has(i)}/>)}
+
+{cmpArr.length===2&&<Btn primary onClick={compareFilms} style={{marginBottom:16}}>⚖️ Compare: {movies.films[cmpArr[0]]?.title} vs {movies.films[cmpArr[1]]?.title}</Btn>}
+
+<Btn onClick={sharePicks} style={{marginBottom:12,background:copied?'rgba(74,222,128,0.15)':undefined,color:copied?'#4ade80':undefined,border:copied?'1px solid rgba(74,222,128,0.3)':undefined}}>
+{copied?'✅ Copied!':'📋 Share picks'}</Btn>
+
+{!soL&&<div style={{...sty.card,marginTop:8}}>
+<p style={{fontWeight:600,marginBottom:12}}>Not quite right?</p>
+<div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+{['More adventurous','Safer picks','More obscure','More popular','Completely different'].map(d=>
+<button key={d} onClick={()=>secondOpinion(d)} style={{...sty.chip,cursor:'pointer'}}>{d}</button>)}
+</div></div>}
+{soL&&<div style={{textAlign:'center',padding:20,animation:'pulse 1.5s infinite'}}>Getting a second opinion...</div>}
+
+<div style={{display:'flex',gap:8,marginTop:16,marginBottom:24}}>
+<Btn primary onClick={()=>fetchFilms(lastA)}>🔄 New Picks</Btn>
+<Btn onClick={home}>🏠 Home</Btn>
+</div></div></Shell>};
+
+/* ===== HEAD TO HEAD ===== */
+const renderH2H=()=>{
+if(!h2h)return null;
+return<Shell><Hdr title="Head to Head" onBack={()=>{setPhase('results');setH2h(null);setH2hData(null)}}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+<FC film={h2h.a} idx={0} compact/>
+<FC film={h2h.b} idx={1} compact/>
+</div>
+{h2hData?<div style={{...sty.card,textAlign:'center'}}>
+<h3 style={{fontFamily:"'Playfair Display',serif",marginBottom:12}}>🏆 Verdict</h3>
+<p style={sty.sub}>{h2hData.verdict}</p>
+{h2hData.winner&&<div style={{marginTop:12}}><span style={{...sty.badge,background:'rgba(232,169,72,0.15)',color:'#e8a948',fontSize:16}}>Winner: {h2hData.winner}</span></div>}
+{h2hData.winReason&&<p style={{...sty.tert,marginTop:8}}>{h2hData.winReason}</p>}
+</div>:<div style={{textAlign:'center',padding:20}}><Loader/></div>}
+<Btn onClick={()=>{setPhase('results');setH2h(null);setH2hData(null)}} style={{marginTop:16}}>← Back to picks</Btn>
+</div></Shell>};
+
+/* ===== LIGHTNING PICK ===== */
+const doLightning=async()=>{
+setPhase('loading');setCurrentMode('lightning');
+try{const r=await callAI(apiKey,`You are a film expert. Recommend 1 random excellent film. Something surprising and genuinely great. Real films, real data only. Reply ONLY JSON: ${filmJSON.replace('"films":[{','\"films\":[{')}`);
+setMovies(r);setPhase('results')}catch(e){setErr(e.message);setPhase('error')}};
+
+/* ===== FILM ROULETTE ===== */
+const doRoulette=async()=>{
+setRouletteSpinning(true);
+const deg=1800+Math.random()*720;setRouletteDeg(deg);
+setTimeout(async()=>{
+setRouletteSpinning(false);setPhase('loading');
+try{const r=await callAI(apiKey,`You are a film expert. The roulette wheel has been spun! Recommend 1 completely random film. Any genre, any era, any country. Make it a great film though. Real films, real data only. Reply ONLY JSON: ${filmJSON}`);
+setMovies(r);setPhase('results')}catch(e){setErr(e.message);setPhase('error')}
+},3000)};
+
+/* ===== FILM CALENDAR ===== */
+const doCalendar=async()=>{
+setPhase('loading');setCurrentMode('calendar');
+try{const r=await callAI(apiKey,`You are a film expert. Recommend 3 films for a weekend:\n1. Friday Night - something with energy and excitement\n2. Saturday Afternoon - relaxed and engaging\n3. Sunday Evening - cosy wind-down\n\nReal films, real data only. Reply ONLY JSON: {"reason":"1 sentence","films":[{film1_friday},{film2_saturday},{film3_sunday}]} where each film has: ${filmJSON.replace('{"reason":"...","films":[','').replace(']}','')} and also a "slot" field being "Friday Night", "Saturday Afternoon", or "Sunday Evening".`);
+setMovies(r);setCustomResults({type:'calendar'});setPhase('results')}catch(e){setErr(e.message);setPhase('error')}};
+
+/* ===== THIS OR THAT ===== */
+const renderToT=()=>{
+const q=TOT_QS[totStep];
+return<Shell><Hdr title="This or That" onBack={home}/><ProgBar step={totStep+1} total={10}/>
+<div key={totStep} style={{animation:'si 0.3s ease',textAlign:'center',padding:'40px 0'}}>
+<div style={{fontSize:48,marginBottom:20}}>🔀</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,marginBottom:24}}>Which do you prefer?</h2>
+<div style={{display:'flex',flexDirection:'column',gap:12}}>
+{q.map((opt,i)=><button key={i} onClick={()=>{
+const na=[...totAnswers,opt];setTotAnswers(na);
+if(totStep<9)setTotStep(totStep+1);
+else{setPhase('loading');callAI(apiKey,`Based on these 10 binary film preferences, recommend 1 perfect "DNA match" film:\n${na.join('\n')}\n\nReal films, real data only. Reply ONLY JSON: ${filmJSON}`).then(r=>{setMovies(r);setPhase('results')}).catch(e=>{setErr(e.message);setPhase('error')})}
+}} style={{...sty.card,cursor:'pointer',fontSize:18,padding:'20px',textAlign:'center',transition:'all 0.15s'}}
+onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{opt}</button>)}
+</div></div></Shell>};
+
+/* ===== GROUP PICK ===== */
+const renderGroupSetup=()=>{
+return<Shell><Hdr title="Group Pick" onBack={home}/>
+<div style={{animation:'fu 0.4s ease',padding:'20px 0'}}>
+<div style={{fontSize:48,textAlign:'center',marginBottom:16}}>👥</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:20}}>Who's watching?</h2>
+{groupNames.map((n,i)=><div key={i} style={{display:'flex',gap:8,marginBottom:8}}>
+<input style={{...sty.input,flex:1}} value={n} onChange={e=>{const nn=[...groupNames];nn[i]=e.target.value;setGroupNames(nn)}} placeholder={`Person ${i+1}`}/>
+{groupNames.length>2&&<button onClick={()=>setGroupNames(groupNames.filter((_,j)=>j!==i))} style={{...sty.chip,color:'#e85454',borderColor:'rgba(232,84,84,0.2)'}}>✕</button>}
+</div>)}
+{groupNames.length<8&&<button onClick={()=>setGroupNames([...groupNames,''])} style={{...sty.chip,marginTop:8}}>+ Add person</button>}
+<Btn primary onClick={()=>{setGroupStep(0);setGroupAnswers({});setPhase('group_vote')}} disabled={groupNames.filter(n=>n.trim()).length<2} style={{marginTop:20}}>Start voting</Btn>
+</div></Shell>};
+
+const renderGroupVote=()=>{
+const validNames=groupNames.filter(n=>n.trim());
+const personIdx=Math.floor(groupStep/GROUP_QS.length);
+const qIdx=groupStep%GROUP_QS.length;
+const person=validNames[personIdx];
+const q=GROUP_QS[qIdx];
+const total=validNames.length*GROUP_QS.length;
+
+if(personIdx>=validNames.length){
+setPhase('loading');
+const summary=Object.entries(groupAnswers).map(([k,v])=>`${k}: ${v}`).join('\n');
+callAI(apiKey,`A group of ${validNames.length} people (${validNames.join(', ')}) voted on what to watch.\n\nVotes:\n${summary}\n\nFind 3 films that satisfy the overlap of everyone's preferences. Real films, real data only. Reply ONLY JSON: ${filmJSON}`).then(r=>{setMovies(r);setPhase('results')}).catch(e=>{setErr(e.message);setPhase('error')});
+return<Shell><Loader/></Shell>}
+
+return<Shell><Hdr title="Group Pick" onBack={home}/><ProgBar step={groupStep+1} total={total}/>
+<div key={groupStep} style={{animation:'si 0.3s ease',padding:'16px 0'}}>
+<div style={{...sty.badge,background:'rgba(99,102,241,0.15)',color:'#818cf8',marginBottom:16,display:'inline-block'}}>{person}'s turn</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,marginBottom:16}}>{q.q}</h2>
+<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+{q.opts.map((o,i)=><button key={i} onClick={()=>{
+setGroupAnswers({...groupAnswers,[`${person}_${q.id}`]:o});setGroupStep(groupStep+1)
+}} style={{...sty.card,cursor:'pointer',textAlign:'center',fontSize:14,padding:'14px 8px'}}
+onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{o}</button>)}
+</div></div></Shell>};
+
+
+/* ===== WIZARD MODE HANDLER ===== */
+const handleWizardDone=async(mode,answers)=>{
+setPhase('loading');setCurrentMode(mode);
+const prompts={
+quick:()=>{const a={...answers,streaming:strSel};return buildPickerPrompt(a)},
+party:()=>`You're a watch party planner. Plan a full evening around "${answers.film||'a great film'}".\nPeople: ${answers.people||'2'}, Vibe: ${answers.vibe||'fun'}, Dietary: ${answers.dietary||'none'}\n\nReply ONLY JSON: {"film":"${answers.film}","lighting":"description of ideal lighting setup","before":{"playlist":"5 song suggestions","activity":"pre-film activity"},"food":[{"item":"name","desc":"description"}],"drink":[{"item":"name","desc":"description"}],"after":{"discussion":["question1","question2","question3"],"trivia":["fact1","fact2"],"watchNext":{"title":"...","year":"...","reason":"why this follows well"}}}`,
+debrief:()=>`Deep dive analysis of "${answers.film||'the film'}".\nThought: ${answers.think||'mixed'}, Standout: ${answers.standout||'story'}, Spoilers: ${answers.spoilers||'no spoilers'}\n\nReply ONLY JSON: {"film":"${answers.film}","themes":["theme1","theme2","theme3"],"missed":["thing1","thing2"],"directorIntent":"paragraph about director vision","backstory":"interesting production facts","discussion":["question1","question2","question3"],"watchNextChain":[{"title":"...","year":"...","reason":"..."}]}`,
+battle:()=>`Film battle: "${answers.film1}" vs "${answers.film2}".\nCriteria: ${answers.criteria||'overall quality'}, Tone: ${answers.serious||'fun debate'}\n\nReply ONLY JSON: {"film1":{"title":"${answers.film1}","argument":"3-4 sentences making the case","strengths":["s1","s2","s3"]},"film2":{"title":"${answers.film2}","argument":"3-4 sentences making the case","strengths":["s1","s2","s3"]},"verdict":"2 sentences","winner":"film title","winReason":"1 sentence"}`,
+dna:()=>`What do "${answers.film1}" and "${answers.film2}" secretly share? Hunch: ${answers.hunch||'unknown'}. Mode: ${answers.mode||'surprise'}.\n\nReply ONLY JSON: {"film1":"${answers.film1}","film2":"${answers.film2}","connection":"2-3 sentence explanation of hidden connection","sharedDNA":["point1","point2","point3","point4"],"recommended":{"title":"...","year":"...","genre":"...","director":"...","description":"2 sentences","reason":"why it shares this DNA"}}`,
+double:()=>`Recommend a double bill. Style: ${answers.style||'thematic'}, Genre: ${answers.genre||'any'}, Era: ${answers.era||'any'}, Runtime: ${answers.runtime||'any'}.\n\nReal films, real data only. Reply ONLY JSON: {"theme":"pairing theme name","whyTheyPair":"2 sentences","watchOrder":"which to watch first and why","films":[{first film with title,year,genre,director,runtime,description,whyThisFilm,rottenTomatoes,imdb,letterboxd,ageRating,streaming},{second film same format}]}`,
+actor:()=>`Deep dive: ${answers.actor||'the actor'}. Love: ${answers.love||'everything'}, Era: ${answers.era||'full career'}, Depth: ${answers.depth||'medium'}.\n\nReply ONLY JSON: {"actor":"${answers.actor}","careerArc":"2-3 sentence career summary","films":[{"rank":1,"title":"...","year":"...","role":"character name","genre":"...","director":"...","description":"1-2 sentences","rottenTomatoes":"...","imdb":"...","letterboxd":"...","rating":"why this ranks here"}],"underrated":{"title":"...","year":"...","role":"...","reason":"why it deserves more attention"}}. Include exactly 5 ranked films.`,
+soundtrack:()=>`Find films with this music vibe: "${answers.sound||'great soundtrack'}". Genre: ${answers.genre||'any'}, Music era: ${answers.era||'any'}, Importance: ${answers.importance||'memorable'}.\n\nReal films, real data only. Reply ONLY JSON: {"vibe":"vibe title","films":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"...","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"...","soundtrackNote":"1 sentence about the music","keyTracks":"2-3 key tracks or composers"}]}. Include exactly 3 films.`,
+autopsy:()=>`Film autopsy: "${answers.film||'the film'}" was bad because: ${answers.wrong||'multiple issues'}. Hoped for: ${answers.hoped||'better'}. Fix genre: ${answers.fixGenre||'same'}.\n\nReply ONLY JSON: {"film":"${answers.film}","diagnosis":"2-3 sentences about what went wrong","whatYouWanted":"2 sentences about what the viewer was seeking","fixes":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"explains how it fixes the issues","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"..."}]}. Include exactly 2 fix films. Real films, real data only.`,
+swap:()=>`Mood swap: find the polar opposite of "${answers.film||'the film'}". Love about it: ${answers.love||'everything'}. How opposite: ${answers.opposite||'clear opposite'}. Avoid: ${answers.avoidGenre||'nothing'}.\n\nReply ONLY JSON: {"original":{"title":"${answers.film}","analysis":"2 sentences about what makes this film tick"},"opposite":{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"...","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"..."},"whyOpposite":"2 sentences explaining the contrast"}. Real films, real data only.`,
+family:()=>`Family film picks. Kids ages: ${answers.ages||'mixed'}. Into: ${answers.into||'everything'}. Avoid: ${answers.avoid||'nothing specific'}. Adults enjoy too: ${answers.adults||'yes'}.\n\nReal films, real data only. Reply ONLY JSON: {"ages":"${answers.ages}","films":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"...","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"...","parentNote":"1 sentence content note for parents"}]}. Include exactly 3 films.`
+};
+
+try{
+const promptFn=prompts[mode];
+if(!promptFn){setErr('Unknown mode');setPhase('error');return}
+const r=await callAI(apiKey,promptFn(),mode==='actor'?2500:2000);
+if(mode==='quick'||mode==='double'||mode==='soundtrack'||mode==='autopsy'||mode==='family'){
+setMovies(r.films?r:r);setCustomResults({type:mode,data:r});setPhase('results');
+}else{setCustomResults({type:mode,data:r});setPhase('results')}
+}catch(e){setErr(e.message);setPhase('error')}};
+
+/* ===== CUSTOM RESULTS RENDERERS ===== */
+const renderCustomResults=()=>{
+if(!customResults)return renderResults();
+const{type,data}=customResults;
+const d=data||{};
+
+if(type==='quick'||type==='calendar'){
+if(type==='calendar'&&d.films){
+return<Shell><Hdr title="Film Calendar" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{d.reason&&<p style={{...sty.sub,textAlign:'center',marginBottom:16,fontStyle:'italic'}}>"{d.reason}"</p>}
+{d.films.map((f,i)=><div key={i}><div style={{...sty.badge,background:'rgba(139,92,246,0.15)',color:'#a78bfa',marginBottom:8}}>{f.slot||['🌙 Friday Night','☀️ Saturday Afternoon','🌅 Sunday Evening'][i]}</div><FC film={f} idx={i} compact/></div>)}
+<div style={{display:'flex',gap:8,marginTop:16}}><Btn primary onClick={doCalendar}>🔄 New Weekend</Btn><Btn onClick={home}>🏠 Home</Btn></div>
+</div></Shell>}
+return renderResults()}
+
+if(type==='party'){
+return<Shell><Hdr title="Watch Party" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:16}}>🍿 {d.film} Night</h2>
+{d.lighting&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>💡 Lighting</h3><p style={sty.sub}>{d.lighting}</p></div>}
+{d.before&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>🎵 Before the Film</h3>{d.before.playlist&&<p style={sty.sub}>Playlist: {d.before.playlist}</p>}{d.before.activity&&<p style={{...sty.sub,marginTop:8}}>Activity: {d.before.activity}</p>}</div>}
+{d.food&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>🍕 Food & Drink</h3>{[...(d.food||[]),...(d.drink||[])].map((item,i)=><div key={i} style={{marginBottom:8}}><span style={{fontWeight:600}}>{item.item}</span><span style={sty.sub}> — {item.desc}</span></div>)}</div>}
+{d.after&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>💬 After</h3>{d.after.discussion&&<div><p style={{fontWeight:500,marginBottom:6}}>Discussion</p>{d.after.discussion.map((q,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>• {q}</p>)}</div>}{d.after.trivia&&<div style={{marginTop:12}}><p style={{fontWeight:500,marginBottom:6}}>Trivia</p>{d.after.trivia.map((t,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>• {t}</p>)}</div>}{d.after.watchNext&&<div style={{marginTop:12}}><p style={{fontWeight:500,marginBottom:6}}>Watch Next</p><p style={sty.sub}>{d.after.watchNext.title} ({d.after.watchNext.year}) — {d.after.watchNext.reason}</p></div>}</div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='debrief'){
+return<Shell><Hdr title="Film Debrief" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:16}}>🔍 {d.film}</h2>
+{d.themes&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>Themes</h3><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{d.themes.map((t,i)=><span key={i} style={{...sty.badge,background:'rgba(232,169,72,0.12)',color:'#e8a948'}}>{t}</span>)}</div></div>}
+{d.missed&&<div style={sty.card}><h3 style={{color:'#3b82f6',marginBottom:8}}>Things You Might Have Missed</h3>{d.missed.map((m,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>• {m}</p>)}</div>}
+{d.directorIntent&&<div style={sty.card}><h3 style={{color:'#a855f7',marginBottom:8}}>Director's Intent</h3><p style={sty.sub}>{d.directorIntent}</p></div>}
+{d.backstory&&<div style={sty.card}><h3 style={{color:'#22c55e',marginBottom:8}}>Backstory</h3><p style={sty.sub}>{d.backstory}</p></div>}
+{d.discussion&&<div style={sty.card}><h3 style={{color:'#f59e0b',marginBottom:8}}>Discussion Questions</h3>{d.discussion.map((q,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>• {q}</p>)}</div>}
+{d.watchNextChain&&d.watchNextChain.length>0&&<div style={sty.card}><h3 style={{color:'#ec4899',marginBottom:8}}>Watch Next</h3>{d.watchNextChain.map((f,i)=><div key={i} style={{marginBottom:8}}><span style={{fontWeight:600}}>{f.title}</span> <span style={sty.tert}>({f.year})</span><p style={sty.sub}>{f.reason}</p></div>)}</div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='battle'){
+return<Shell><Hdr title="Film Battle" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:16}}>⚔️ {d.film1?.title||''} vs {d.film2?.title||''}</h2>
+{[d.film1,d.film2].filter(Boolean).map((f,i)=><div key={i} style={{...sty.card,borderColor:d.winner===f.title?'#e8a948':'rgba(255,255,255,0.08)'}}>
+<h3 style={{marginBottom:8}}>{f.title} {d.winner===f.title&&'🏆'}</h3>
+<p style={sty.sub}>{f.argument}</p>
+{f.strengths&&<div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>{f.strengths.map((s,j)=><span key={j} style={{...sty.badge,background:'rgba(255,255,255,0.06)'}}>{s}</span>)}</div>}
+</div>)}
+{d.verdict&&<div style={{...sty.card,background:'rgba(232,169,72,0.08)',borderColor:'rgba(232,169,72,0.2)'}}><h3 style={{color:'#e8a948',marginBottom:8}}>Verdict</h3><p style={sty.sub}>{d.verdict}</p>{d.winReason&&<p style={{...sty.tert,marginTop:4}}>{d.winReason}</p>}</div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='dna'){
+return<Shell><Hdr title="Film DNA" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>
+<span style={{...sty.badge,background:'rgba(20,184,166,0.15)',color:'#14b8a6'}}>{d.film1}</span>
+<span style={sty.tert}>🧬</span>
+<span style={{...sty.badge,background:'rgba(20,184,166,0.15)',color:'#14b8a6'}}>{d.film2}</span>
+</div>
+{d.connection&&<div style={sty.card}><h3 style={{color:'#14b8a6',marginBottom:8}}>The Connection</h3><p style={sty.sub}>{d.connection}</p></div>}
+{d.sharedDNA&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>Shared DNA</h3>{d.sharedDNA.map((p,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>🧬 {p}</p>)}</div>}
+{d.recommended&&<div><h3 style={{fontFamily:"'Playfair Display',serif",margin:'16px 0 8px'}}>You might also love...</h3><FC film={d.recommended} idx={0} compact/></div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+
+if(type==='double'){
+const films=d.films||movies?.films||[];
+return<Shell><Hdr title="Double Bill" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{d.theme&&<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:8}}>🎭 {d.theme}</h2>}
+{d.whyTheyPair&&<p style={{...sty.sub,textAlign:'center',marginBottom:16,fontStyle:'italic'}}>"{d.whyTheyPair}"</p>}
+{films.map((f,i)=><FC key={i} film={f} idx={i} compact/>)}
+{d.watchOrder&&<div style={{...sty.card,background:'rgba(168,85,247,0.08)',borderColor:'rgba(168,85,247,0.2)'}}><p style={{fontSize:14,color:'#a855f7'}}>📋 {d.watchOrder}</p></div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='actor'){
+return<Shell><Hdr title="Actor Deep Dive" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:8}}>🌟 {d.actor}</h2>
+{d.careerArc&&<p style={{...sty.sub,textAlign:'center',marginBottom:16}}>{d.careerArc}</p>}
+{(d.films||[]).map((f,i)=><div key={i} style={{...sty.card,animation:'fu 0.4s ease',animationDelay:`${i*0.1}s`,animationFillMode:'both'}}>
+<div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+<span style={{...sty.badge,background:'linear-gradient(135deg,#e8a948,#f0c06e)',color:'#0c0f1a',fontWeight:700,fontSize:18,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'50%'}}>#{f.rank}</span>
+<div><div style={{fontWeight:700}}>{f.title} <span style={sty.tert}>({f.year})</span></div><div style={sty.sub}>as {f.role} · dir. {f.director}</div></div>
+</div>
+<p style={sty.sub}>{f.description||f.rating}</p>
+<div style={{display:'flex',gap:6,marginTop:8}}>
+{f.rottenTomatoes&&<span style={{...sty.badge,background:'rgba(232,84,84,0.15)',color:'#e85454',fontSize:12}}>🍅 {f.rottenTomatoes}</span>}
+{f.imdb&&<span style={{...sty.badge,background:'rgba(232,169,72,0.15)',color:'#e8a948',fontSize:12}}>⭐ {f.imdb}</span>}
+{f.letterboxd&&<span style={{...sty.badge,background:'rgba(74,222,128,0.15)',color:'#4ade80',fontSize:12}}>💚 {f.letterboxd}</span>}
+</div></div>)}
+{d.underrated&&<div style={{...sty.card,background:'rgba(232,169,72,0.06)',borderColor:'rgba(232,169,72,0.15)'}}>
+<h3 style={{color:'#e8a948',marginBottom:8}}>💎 Hidden Gem</h3>
+<div style={{fontWeight:600}}>{d.underrated.title} <span style={sty.tert}>({d.underrated.year})</span></div>
+{d.underrated.role&&<div style={sty.sub}>as {d.underrated.role}</div>}
+<p style={{...sty.sub,marginTop:4}}>{d.underrated.reason}</p></div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='soundtrack'){
+const films=d.films||movies?.films||[];
+return<Shell><Hdr title="Soundtrack Finder" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{d.vibe&&<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:16}}>🎵 {d.vibe}</h2>}
+{films.map((f,i)=><FC key={i} film={f} idx={i}/>)}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='autopsy'){
+const fixes=d.fixes||movies?.films||[];
+return<Shell><Hdr title="Film Autopsy" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:16}}>🔬 {d.film}</h2>
+{d.diagnosis&&<div style={{...sty.card,background:'rgba(232,84,84,0.06)',borderColor:'rgba(232,84,84,0.15)'}}><h3 style={{color:'#e85454',marginBottom:8}}>💀 Diagnosis</h3><p style={sty.sub}>{d.diagnosis}</p></div>}
+{d.whatYouWanted&&<div style={{...sty.card,background:'rgba(232,169,72,0.06)',borderColor:'rgba(232,169,72,0.15)'}}><h3 style={{color:'#e8a948',marginBottom:8}}>💭 What You Wanted</h3><p style={sty.sub}>{d.whatYouWanted}</p></div>}
+<h3 style={{fontFamily:"'Playfair Display',serif",margin:'16px 0 8px'}}>💊 The Fix</h3>
+{fixes.map((f,i)=><FC key={i} film={f} idx={i}/>)}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='swap'){
+return<Shell><Hdr title="Mood Swap" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{d.original&&<div style={sty.card}><h3 style={{marginBottom:8}}>{d.original.title}</h3><p style={sty.sub}>{d.original.analysis}</p></div>}
+<div style={{textAlign:'center',margin:'16px 0',color:'#6b6780'}}>🔄 ─── Flipped ─── 🔄</div>
+{d.opposite&&<FC film={d.opposite} idx={1}/>}
+{d.whyOpposite&&<div style={{...sty.card,background:'rgba(16,185,129,0.06)',borderColor:'rgba(16,185,129,0.15)'}}><p style={{fontSize:14,color:'#10b981'}}>{d.whyOpposite}</p></div>}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+if(type==='family'){
+const films=d.films||movies?.films||[];
+return<Shell><Hdr title="Family Film Picker" onBack={home}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{d.ages&&<div style={{...sty.badge,background:'rgba(244,114,182,0.15)',color:'#f472b6',marginBottom:16,display:'inline-block'}}>👶 Ages: {d.ages}</div>}
+{films.map((f,i)=><FC key={i} film={f} idx={i}/>)}
+<Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
+
+return renderResults()};
+
+
+/* ===== HOME SCREEN ===== */
+const renderHome=()=>(
+<Shell>
+<div style={{textAlign:'center',paddingTop:60,animation:'fu 0.5s ease'}}>
+<div style={{fontSize:64,marginBottom:16,animation:'glow 2s ease-in-out infinite',display:'inline-block',borderRadius:'50%'}}>🎬</div>
+<h1 style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,marginBottom:8}}>Film Picker</h1>
+<p style={sty.sub}>Find something to watch tonight</p>
+
+{!apiKey.startsWith('sk-')?<div style={{marginTop:24,textAlign:'left'}}>
+<p style={{...sty.tert,marginBottom:8}}>Enter your Anthropic API key to get started</p>
+<input type={showKey?'text':'password'} style={sty.input} value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="sk-ant-..."/>
+<div style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}>
+<button onClick={()=>setShowKey(!showKey)} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:12}}>{showKey?'Hide':'Show'} key</button>
+</div>
+</div>
+
+:<>
+{lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'10px 16px',marginTop:16,display:'inline-flex',alignItems:'center',gap:8}}>
+<span style={{color:'#4ade80'}}>✅ {lb.length} Letterboxd films loaded</span></div>}
+
+<button onClick={()=>setPhase('lb')} style={{...sty.btnP,marginTop:24,padding:'18px 24px',fontSize:18,borderRadius:16,animation:'glow 2s ease-in-out infinite'}}>🎬 Pick a Film</button>
+
+<button onClick={()=>setMoreOpen(!moreOpen)} style={{...sty.btnS,marginTop:12}}>{moreOpen?'Hide options ↑':'Do something else ↓'}</button>
+
+{moreOpen&&<div style={{marginTop:16,animation:'fu 0.3s ease'}}>
+{MODE_CARDS.map(m=><button key={m.id} onClick={()=>{
+setCurrentMode(m.id);
+if(m.id==='lightning')doLightning();
+else if(m.id==='roulette')setPhase('roulette');
+else if(m.id==='calendar')doCalendar();
+else if(m.id==='tot'){setTotStep(0);setTotAnswers([]);setPhase('tot')}
+else if(m.id==='group'){setGroupNames(['','']);setPhase('group')}
+else if(m.id==='lb_standalone')setPhase('lb_standalone');
+else setPhase(m.id)
+}} style={{...sty.card,display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%',transition:'all 0.15s'}}
+onMouseOver={e=>e.currentTarget.style.borderColor=m.col} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>
+<div style={{width:44,height:44,borderRadius:12,background:`${m.col}20`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{m.icon}</div>
+<div><div style={{fontWeight:600,fontSize:15}}>{m.title}</div><div style={sty.tert}>{m.desc}</div></div>
+</button>)}
+</div>}
+</>}
+</div></Shell>);
+
+/* ===== ROULETTE SCREEN ===== */
+const renderRoulette=()=>(
+<Shell><Hdr title="Film Roulette" onBack={home}/>
+<div style={{textAlign:'center',padding:'60px 0',animation:'fu 0.4s ease'}}>
+<div style={{fontSize:80,marginBottom:24,display:'inline-block',transition:rouletteSpinning?'transform 3s cubic-bezier(0.17,0.67,0.12,0.99)':'none',transform:rouletteSpinning?`rotate(${rouletteDeg}deg)`:'none'}}>🎰</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:28,marginBottom:8}}>Film Roulette</h2>
+<p style={sty.sub}>Spin the wheel and let fate decide</p>
+<Btn primary onClick={doRoulette} disabled={rouletteSpinning} style={{marginTop:32,maxWidth:240,margin:'32px auto 0'}}>
+{rouletteSpinning?'Spinning...':'🎰 Spin the Wheel'}</Btn>
+<Btn onClick={home} style={{marginTop:12,maxWidth:240,margin:'12px auto 0'}}>🏠 Home</Btn>
+</div></Shell>);
+
+/* ===== ERROR SCREEN ===== */
+const renderError=()=>(
+<Shell><div style={{textAlign:'center',padding:'80px 20px',animation:'fu 0.4s ease'}}>
+<div style={{fontSize:48,marginBottom:16}}>😵</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",marginBottom:8}}>Something went wrong</h2>
+<p style={{...sty.sub,marginBottom:4}}>{err||'An unexpected error occurred'}</p>
+<p style={sty.tert}>Check your API key and try again</p>
+<div style={{display:'flex',gap:8,marginTop:24,justifyContent:'center'}}>
+<Btn primary onClick={()=>{setErr(null);if(lastA)fetchFilms(lastA);else home()}}>Try Again</Btn>
+<Btn onClick={home}>🏠 Home</Btn>
+</div></div></Shell>);
+
+/* ===== PHASE ROUTER ===== */
+if(phase==='home')return renderHome();
+if(phase==='error')return renderError();
+if(phase==='loading')return<Shell><Loader/></Shell>;
+if(phase==='h2h')return renderH2H();
+if(phase==='tot')return renderToT();
+if(phase==='roulette')return renderRoulette();
+if(phase==='group')return renderGroupSetup();
+if(phase==='group_vote')return renderGroupVote();
+
+if(phase==='lb'||phase==='lb_standalone')return<LBImport lb={lb} onDone={films=>{setLb(films);if(phase==='lb'){setPhase('questions');setStep(0)}else setPhase('home')}} onSkip={()=>{if(phase==='lb'){setPhase('questions');setStep(0)}else setPhase('home')}}/>;
+
+if(phase==='questions'){
+if(step<SEL_QS.length)return renderSelectQ();
+return renderTextQ()}
+
+if(phase==='results'){
+if(customResults)return renderCustomResults();
+return renderResults()}
+
+/* Wizard-based modes */
+if(phase==='quick')return<Wizard icon="⚡" title="Quick Pick" steps={QUICK_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('quick',a)}/>;
+if(phase==='party')return<Wizard icon="🍿" title="Watch Party" steps={PARTY_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('party',a)}/>;
+if(phase==='debrief')return<Wizard icon="🔍" title="Film Debrief" steps={DEBRIEF_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('debrief',a)}/>;
+if(phase==='battle')return<Wizard icon="⚔️" title="Film Battle" steps={BATTLE_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('battle',a)}/>;
+if(phase==='dna')return<Wizard icon="🧬" title="Film DNA" steps={DNA_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('dna',a)}/>;
+if(phase==='double')return<Wizard icon="🎭" title="Double Bill" steps={DOUBLE_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('double',a)}/>;
+if(phase==='actor')return<Wizard icon="🌟" title="Actor Deep Dive" steps={ACTOR_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('actor',a)}/>;
+if(phase==='soundtrack')return<Wizard icon="🎵" title="Soundtrack Finder" steps={SOUNDTRACK_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('soundtrack',a)}/>;
+if(phase==='autopsy')return<Wizard icon="🔬" title="Film Autopsy" steps={AUTOPSY_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('autopsy',a)}/>;
+if(phase==='swap')return<Wizard icon="🔄" title="Mood Swap" steps={SWAP_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('swap',a)}/>;
+if(phase==='family')return<Wizard icon="👨‍👩‍👧‍👦" title="Family Film Picker" steps={FAMILY_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('family',a)}/>;
+
+return renderHome();
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
