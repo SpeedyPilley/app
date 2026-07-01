@@ -543,20 +543,24 @@ const finish=v=>{if(done)return;done=true;posterCache[key]=v;cleanup();resolve(v
 window[cb]=data=>{
 try{
 const rs=(data&&data.results)||[];
-let best=rs[0];
-if(year){const m=rs.find(r=>r.releaseDate&&String(r.releaseDate).startsWith(String(year)));if(m)best=m;}
-if(best&&best.artworkUrl100)finish(best.artworkUrl100.replace('100x100bb','600x600bb'));
-else finish(null);
+const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const want=norm(title);
+let best=rs.find(r=>norm(r.trackName)===want);
+if(!best&&year)best=rs.find(r=>norm(r.trackName)===want&&String(r.releaseDate||'').startsWith(String(year)));
+if(!best)best=rs.find(r=>{const n=norm(r.trackName);return n&&(n.includes(want)||want.includes(n));});
+if(!best)best=rs[0];
+const art=best&&(best.artworkUrl100||best.artworkUrl60);
+finish(art?art.replace(/\/\d+x\d+bb/,'/600x600bb'):null);
 }catch(e){finish(null);}
 };
 try{
 const s=document.createElement('script');
 s.id=cb;
-s.src='https://itunes.apple.com/search?media=movie&entity=movie&limit=6&callback='+cb+'&term='+encodeURIComponent(title);
+s.src='https://itunes.apple.com/search?media=movie&entity=movie&limit=12&callback='+cb+'&term='+encodeURIComponent(title);
 s.onerror=()=>finish(null);
 document.head.appendChild(s);
 }catch(e){finish(null);}
-setTimeout(()=>finish(null),6000);
+setTimeout(()=>finish(null),5000);
 });
 
 // A single standout film for the home "Tonight's Pick" spotlight
@@ -592,7 +596,7 @@ runtime:mins?formatRuntime(mins):'',
 description:r.longDescription||r.shortDescription||'',
 whyThisFilm:'',rottenTomatoes:'',imdb:'',letterboxd:'',
 ageRating:r.contentAdvisoryRating||'',streaming:'',
-posterUrl:r.artworkUrl100?r.artworkUrl100.replace('100x100bb','600x600bb'):null,
+posterUrl:(r.artworkUrl100||r.artworkUrl60)?(r.artworkUrl100||r.artworkUrl60).replace(/\/\d+x\d+bb/,'/600x600bb'):null,
 mins
 };
 };
@@ -1360,8 +1364,9 @@ setPhase('results');
 
 /* ===== FILM ROULETTE ===== */
 const doRoulette=()=>{
+if(rouletteSpinning)return;
 setRouletteSpinning(true);
-const deg=1800+Math.random()*720;setRouletteDeg(deg);
+setRouletteDeg(d=>d+1440+Math.floor(Math.random()*360)+Math.random()*360);
 setTimeout(async()=>{
 setRouletteSpinning(false);setPhase('loading');
 try{const f=await itunesRandomGreat(dis,lbTitles());if(f){setMovies({reason:'The wheel has spoken!',films:[f]});setPhase('results');return;}}catch(e){}
@@ -1369,7 +1374,7 @@ await new Promise(r=>setTimeout(r,350));
 const pick=FILM_DB[Math.floor(Math.random()*FILM_DB.length)];
 setMovies({reason:'The wheel has spoken!',films:[toFilmObj(pick,['the wheel has spoken'])]});
 setPhase('results');
-},3000);
+},3700);
 };
 
 /* ===== FILM CALENDAR ===== */
@@ -1795,16 +1800,28 @@ const renderHistory=()=>(
 </div></Shell>);
 
 /* ===== ROULETTE SCREEN ===== */
-const renderRoulette=()=>(
-<Shell><Hdr title="Film Roulette" onBack={home}/>
-<div style={{textAlign:'center',padding:'60px 0',animation:'fu 0.4s ease'}}>
-<div style={{fontSize:80,marginBottom:24,display:'inline-block',transition:rouletteSpinning?'transform 3s cubic-bezier(0.17,0.67,0.12,0.99)':'none',transform:rouletteSpinning?`rotate(${rouletteDeg}deg)`:'none'}}>🎰</div>
-<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:28,marginBottom:8}}>Film Roulette</h2>
-<p style={sty.sub}>Spin the wheel and let fate decide</p>
-<Btn primary onClick={doRoulette} disabled={rouletteSpinning} style={{marginTop:32,maxWidth:240,margin:'32px auto 0'}}>
-{rouletteSpinning?'Spinning...':'🎰 Spin the Wheel'}</Btn>
+const renderRoulette=()=>{
+const segs=['#e8a948','#6366f1','#22c55e','#ef4444','#a855f7','#f97316','#14b8a6','#eab308'];
+const seg=360/segs.length;
+const grad=segs.map((c,i)=>`${c} ${i*seg}deg ${(i+1)*seg}deg`).join(',');
+return<Shell><Hdr title="Film Roulette" onBack={home}/>
+<div style={{textAlign:'center',padding:'32px 0',animation:'fu 0.4s ease'}}>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:28,marginBottom:6}}>Film Roulette</h2>
+<p style={{...sty.sub,marginBottom:28}}>Spin the wheel and let fate decide</p>
+<div style={{position:'relative',width:264,height:264,margin:'0 auto'}}>
+{/* pointer */}
+<div style={{position:'absolute',top:-6,left:'50%',transform:'translateX(-50%)',width:0,height:0,borderLeft:'13px solid transparent',borderRight:'13px solid transparent',borderTop:'22px solid #f0c06e',zIndex:3,filter:'drop-shadow(0 2px 3px rgba(0,0,0,0.5))'}}/>
+{/* wheel */}
+<div style={{width:264,height:264,borderRadius:'50%',background:`conic-gradient(${grad})`,border:'6px solid rgba(255,255,255,0.12)',boxShadow:'0 12px 40px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,0,0,0.35)',transition:rouletteSpinning?'transform 3.6s cubic-bezier(0.15,0.7,0.15,1)':'none',transform:`rotate(${rouletteDeg}deg)`}}>
+{segs.map((c,i)=><div key={i} style={{position:'absolute',top:'50%',left:'50%',width:2,height:'46%',background:'rgba(0,0,0,0.18)',transformOrigin:'top center',transform:`translateX(-50%) rotate(${i*seg}deg)`}}/>)}
+</div>
+{/* hub */}
+<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:66,height:66,borderRadius:'50%',background:'linear-gradient(135deg,#141829,#0c0f1a)',border:'4px solid #f0c06e',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,zIndex:2,boxShadow:'0 2px 10px rgba(0,0,0,0.5)'}}>🎬</div>
+</div>
+<Btn primary onClick={doRoulette} disabled={rouletteSpinning} style={{marginTop:36,maxWidth:240,margin:'36px auto 0'}}>
+{rouletteSpinning?'Spinning…':'🎰 Spin the Wheel'}</Btn>
 <Btn onClick={home} style={{marginTop:12,maxWidth:240,margin:'12px auto 0'}}>🏠 Home</Btn>
-</div></Shell>);
+</div></Shell>};
 
 /* ===== ERROR SCREEN ===== */
 const renderError=()=>(
