@@ -62,44 +62,25 @@ const hashPw=str=>{str=String(str)+'fp_salt_9x';let h1=0xdeadbeef,h2=0x41c6ce57;
 const LOAD_MSGS=["Scanning the archives...","Checking the reels...","Finding hidden gems...","Cross-referencing the collection...","Digging through the vault...","Almost there..."];
 
 const MODE_CARDS=[
-{id:'quick',icon:'⚡',title:'Quick Pick',desc:'4 key questions, 3 great films',col:'#f59e0b'},
-{id:'lightning',icon:'🎯',title:'Lightning Pick',desc:'Zero questions. Just pick me a film.',col:'#f97316'},
-{id:'group',icon:'👥',title:'Group Pick',desc:'Everyone votes, find a film for the group',col:'#6366f1'},
 {id:'roulette',icon:'🎰',title:'Film Roulette',desc:'Spin the wheel, totally random',col:'#ef4444'},
-{id:'double',icon:'🎭',title:'Double Bill',desc:'Two films that pair perfectly together',col:'#a855f7'},
+{id:'tot',icon:'🔀',title:'This or That',desc:'10 rapid choices, one perfect film',col:'#06b6d4'},
+{id:'group',icon:'👥',title:'Group Pick',desc:'Everyone votes, find one for the group',col:'#6366f1'},
 {id:'calendar',icon:'📅',title:'Film Calendar',desc:'Friday, Saturday & Sunday picks',col:'#8b5cf6'},
-{id:'party',icon:'🍿',title:'Watch Party Planner',desc:'Full evening planned around a film',col:'#22c55e'},
-{id:'debrief',icon:'🔍',title:'Film Debrief',desc:'Just watched something? Deep dive it.',col:'#3b82f6'},
-{id:'battle',icon:'⚔️',title:'Film Battle',desc:'Two films enter. One wins. You decide.',col:'#eab308'},
-{id:'dna',icon:'🧬',title:'Film DNA',desc:'What do two films secretly share?',col:'#14b8a6'},
-{id:'actor',icon:'🌟',title:'Actor Deep Dive',desc:"Any actor's essential 5 films",col:'#f43f5e'},
-{id:'soundtrack',icon:'🎵',title:'Soundtrack Finder',desc:'Find films by their music vibe',col:'#8b5cf6'},
-{id:'tot',icon:'🔀',title:'This or That',desc:'10 rapid binary choices',col:'#06b6d4'},
-{id:'autopsy',icon:'🔬',title:'Film Autopsy',desc:'Fix a film you hated',col:'#ec4899'},
-{id:'swap',icon:'🔄',title:'Mood Swap',desc:'Find the polar opposite of a film',col:'#10b981'},
 {id:'family',icon:'👨‍👩‍👧‍👦',title:'Family Film Picker',desc:'Films the whole family will love',col:'#f472b6'},
+{id:'actor',icon:'🌟',title:'Actor Deep Dive',desc:"An actor's essential films",col:'#f43f5e'},
+{id:'party',icon:'🍿',title:'Watch Party Planner',desc:'Plan a full evening around a film',col:'#22c55e'},
 {id:'lb_standalone',icon:'📋',title:'Import Letterboxd',desc:"Skip films you've already seen",col:'#94a3b8'}
 ];
 
 const SEL_QS=[
-{id:'genre',q:'What genre are you in the mood for?',sub:'Pick one or type your own',cols:2,opts:['🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','👻 Horror','🚀 Sci-Fi','💕 Romance','🧙 Fantasy','✏️ Animation','📹 Documentary','🔫 Crime','🔎 Mystery','⚔️ War','🤠 Western','🎵 Musical','🦸 Superhero','📜 Historical','📖 Biography','⚽ Sports','👨‍👩‍👧 Family','💰 Heist','🌋 Disaster','🌑 Noir','🧠 Psychological','🏔️ Survival','🌱 Coming-of-Age','😏 Satire','⚖️ Courtroom','🛣️ Road Movie','🏚️ Dystopian','🕵️ Spy','💀 Revenge','💑 Rom-Com','🖤 Dark Comedy','🧟 Zombie','🎥 Mockumentary']},
-{id:'era',q:'When should it be from?',sub:'Pick an era',opts:['🆕 Brand New (last 2 years)','📅 Recent (last 5 years)','📺 2010s','💿 2000s','📼 90s','📻 80s','📽️ 70s or Earlier','🎲 Any Era']},
+{id:'genre',q:'What genre are you in the mood for?',sub:'Pick one or search',cols:2,opts:['🎬 Action','😂 Comedy','🎭 Drama','😰 Thriller','👻 Horror','🚀 Sci-Fi','💕 Romance','🧙 Fantasy','✏️ Animation','📹 Documentary','🔫 Crime','🔎 Mystery','⚔️ War','🤠 Western','🎵 Musical','🦸 Superhero','📜 Historical','📖 Biography','⚽ Sports','👨‍👩‍👧 Family','💰 Heist','🌑 Noir','🧠 Psychological','🏔️ Survival','🌱 Coming-of-Age','🕵️ Spy','💑 Rom-Com','🖤 Dark Comedy','🧟 Zombie','🎲 Anything']},
 {id:'who',q:"Who's watching?",opts:['🙋 Just Me','💑 Date Night','👯 Friends','👨‍👩‍👧 Family / Kids','🛋️ Partner (Chill Night)','🎬 Film Nerds']},
-{id:'pacing',q:'What pacing do you want?',opts:['📺 Easy Background','😊 Engaging but Light','🕯️ Slow Burn','🎯 Full Attention','💨 Fast & Relentless','🤷 Don\'t Mind']},
-{id:'tone',q:'What tone are you after?',cols:2,opts:['🌑 Dark & Gritty','☀️ Light & Fun','😢 Emotional','🌀 Mind-Bending','😊 Feel-Good','😬 Tense','😂 Funny Throughout','🥲 Bittersweet','🎪 Quirky','🏔️ Epic & Grand','💭 Dreamy','💥 Raw','🤗 Heartwarming','🤪 Absurd','🤷 Don\'t Mind']},
-{id:'calibre',q:'What calibre of film?',cols:2,opts:['🏆 Oscar Winner','⭐ Critics\' Fave','💎 Hidden Gem','🎪 Cult Classic','👍 Crowd Pleaser','🔍 Underrated','🎬 Indie','📰 True Story','📚 Book Adaptation','🎭 Festival Winner','💰 Box Office Smash','🎲 Any']},
-{id:'runtime',q:'How long have you got?',opts:['⚡ Quick (under 90 min)','⏱️ Standard (90-120 min)','🕐 Long (2-2.5h)','🎬 Epic (2.5h+)','🤷 Don\'t Care']},
-{id:'country',q:'Any country or language preference?',cols:2,opts:['🇬🇧 English Only','🇺🇸 Hollywood','🇬🇧 British','🇫🇷 French','🇰🇷 Korean','🇯🇵 Japanese','🇸🇪 Scandinavian','🇮🇳 Indian','🇪🇸 Spanish','🇮🇹 Italian','🇩🇪 German','🌍 Any (Subs Fine)','🤷 Don\'t Mind']},
-{id:'age',q:'Age rating?',opts:['U','PG','12A','15','18','🤷 Don\'t Mind']},
-{id:'adventure',q:'How adventurous are you feeling?',opts:['🛡️ Safe Pick','👉 Nudge Me','🚀 Push Me','🎲 Total Wildcard']}
+{id:'tone',q:'What kind of vibe?',cols:2,opts:['🌑 Dark & Gritty','☀️ Light & Fun','😢 Emotional','🌀 Mind-Bending','😊 Feel-Good','😬 Tense','😂 Funny','🥲 Bittersweet','🎪 Quirky','🏔️ Epic','💭 Dreamy','🤷 Don\'t Mind']},
+{id:'runtime',q:'How long have you got?',opts:['⚡ Quick (under 90 min)','⏱️ Standard (90-120 min)','🕐 Long (2-2.5h)','🎬 Epic (2.5h+)','🤷 Don\'t Care']}
 ];
 
 const TEXT_QS=[
-{id:'actors',q:'Any actors or directors you love?',ph:'e.g. Florence Pugh, Denis Villeneuve...',chips:['Tom Hanks','Florence Pugh','Denzel Washington','Greta Gerwig','Brad Pitt','Saoirse Ronan','Leonardo DiCaprio','Cate Blanchett','Ryan Gosling','Viola Davis','Timothée Chalamet','Margot Robbie','Oscar Isaac','Emma Stone','Pedro Pascal','Denis Villeneuve','Christopher Nolan','Martin Scorsese','Wes Anderson','Bong Joon-ho','Jordan Peele','Emerald Fennell','Guillermo del Toro','Barry Jenkins','Taika Waititi','Yorgos Lanthimos','Ridley Scott','Hayao Miyazaki']},
-{id:'vibeFilms',q:'Any films you want that vibe from?',ph:'e.g. Parasite, Inception...',chips:['Parasite','The Shawshank Redemption','Inception','Pulp Fiction','Moonlight','Get Out','Lady Bird','The Grand Budapest Hotel','Mad Max: Fury Road','Arrival','Spirited Away','The Dark Knight','Amélie','No Country for Old Men','Everything Everywhere','The Godfather','Blade Runner 2049','Midsommar','La La Land','Whiplash','The Truman Show','Pan\'s Labyrinth','Interstellar','Knives Out','The Lighthouse','Portrait of a Lady on Fire','Dune','Aftersun']},
-{id:'streaming',q:'Where can you watch?',special:'streaming'},
-{id:'avoid',q:'Anything you want to avoid?',ph:'e.g. gore, jump scares...',chips:['Excessive violence','Gore','Jump scares','Sexual content','Animal harm','Child peril','Flashing lights','Spiders/insects','Drowning scenes','Needles','Clowns','Body horror']},
-{id:'extra',q:'Anything else we should know?',ph:'e.g. Strong female lead, twist ending...',chips:['Strong female lead','Twist ending','Set in Scotland','Beautiful cinematography','Based on true events','Non-linear timeline','Ensemble cast','Solo performance','Foreign language','Black & white','Animated','Under 90 minutes','Feel-good ending']}
+{id:'streaming',q:'Where can you watch?',special:'streaming'}
 ];
 
 const QUICK_STEPS=[
@@ -1676,23 +1657,15 @@ const renderHome=()=>(
 
 <button onClick={()=>setPhase('lb')} style={{...sty.btnP,marginTop:14,padding:'18px 24px',fontSize:18,borderRadius:16}}>🎬 Pick a Film</button>
 
-{/* Quick actions */}
-<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:12}}>
-{[{id:'lightning',icon:'🎯',label:'Instant'},{id:'roulette',icon:'🎰',label:'Roulette'},{id:'surprise',icon:'🎲',label:'Surprise'}].map(q=>
-<button key={q.id} onClick={()=>launchMode(q.id)} style={{...sty.card,marginBottom:0,cursor:'pointer',textAlign:'center',padding:'14px 6px'}} onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
-<div style={{fontSize:24}}>{q.icon}</div><div style={{fontSize:12,marginTop:4,color:'#c7c3db'}}>{q.label}</div>
-</button>)}
-</div>
-
 {/* Favourites preview */}
-{favourites.length>0&&<div style={{marginTop:16}}>
+{favourites.length>0&&<div style={{marginTop:20}}>
 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
 <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:17}}>❤️ Your Favourites</h3>
 <button onClick={()=>setPhase('favourites')} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:13}}>See all ({favourites.length}) →</button>
 </div>
 <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
-{favourites.slice(-6).reverse().map((f,i)=><button key={i} onClick={()=>setPhase('favourites')} style={{...sty.card,marginBottom:0,minWidth:120,cursor:'pointer',textAlign:'left',padding:10}}>
-<div style={{height:56,borderRadius:8,background:`linear-gradient(135deg,${POSTER_GRADS[i%3][0]},${POSTER_GRADS[i%3][1]})`,marginBottom:6}}/>
+{favourites.slice(-8).reverse().map((f,i)=><button key={i} onClick={()=>setPhase('favourites')} style={{...sty.card,marginBottom:0,minWidth:110,cursor:'pointer',textAlign:'left',padding:8}}>
+<div style={{height:150,borderRadius:8,marginBottom:6,overflow:'hidden',background:`linear-gradient(135deg,${POSTER_GRADS[i%3][0]},${POSTER_GRADS[i%3][1]})`}}>{f.posterUrl&&<img src={f.posterUrl} alt={f.title} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}</div>
 <div style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.title}</div>
 <div style={{...sty.tert,fontSize:11}}>{f.year}</div>
 </button>)}
@@ -1701,7 +1674,7 @@ const renderHome=()=>(
 {lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'10px 16px',marginTop:16,display:'flex',alignItems:'center',gap:8}}>
 <span style={{color:'#4ade80',fontSize:14}}>✅ {lb.length} Letterboxd films loaded — we'll skip these</span></div>}
 
-<button onClick={()=>setMoreOpen(!moreOpen)} style={{...sty.btnS,marginTop:16}}>{moreOpen?'Hide discovery modes ↑':'More ways to discover ↓'}</button>
+<button onClick={()=>setMoreOpen(!moreOpen)} style={{...sty.btnS,marginTop:20}}>{moreOpen?'Hide other ways ↑':'More ways to pick ↓'}</button>
 
 {moreOpen&&<div style={{marginTop:12,animation:'fu 0.3s ease'}}>
 {MODE_CARDS.map(m=><button key={m.id} onClick={()=>launchMode(m.id)} style={{...sty.card,display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%',transition:'all 0.15s'}}
@@ -1859,16 +1832,8 @@ if(customResults)return renderCustomResults();
 return renderResults()}
 
 /* Wizard-based modes */
-if(phase==='quick')return<Wizard icon="⚡" title="Quick Pick" steps={QUICK_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('quick',a)}/>;
 if(phase==='party')return<Wizard icon="🍿" title="Watch Party" steps={PARTY_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('party',a)}/>;
-if(phase==='debrief')return<Wizard icon="🔍" title="Film Debrief" steps={DEBRIEF_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('debrief',a)}/>;
-if(phase==='battle')return<Wizard icon="⚔️" title="Film Battle" steps={BATTLE_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('battle',a)}/>;
-if(phase==='dna')return<Wizard icon="🧬" title="Film DNA" steps={DNA_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('dna',a)}/>;
-if(phase==='double')return<Wizard icon="🎭" title="Double Bill" steps={DOUBLE_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('double',a)}/>;
 if(phase==='actor')return<Wizard icon="🌟" title="Actor Deep Dive" steps={ACTOR_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('actor',a)}/>;
-if(phase==='soundtrack')return<Wizard icon="🎵" title="Soundtrack Finder" steps={SOUNDTRACK_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('soundtrack',a)}/>;
-if(phase==='autopsy')return<Wizard icon="🔬" title="Film Autopsy" steps={AUTOPSY_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('autopsy',a)}/>;
-if(phase==='swap')return<Wizard icon="🔄" title="Mood Swap" steps={SWAP_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('swap',a)}/>;
 if(phase==='family')return<Wizard icon="👨‍👩‍👧‍👦" title="Family Film Picker" steps={FAMILY_STEPS} strSel={strSel} onStrToggle={strToggle} onDone={a=>handleWizardDone('family',a)}/>;
 
 return renderHome();
