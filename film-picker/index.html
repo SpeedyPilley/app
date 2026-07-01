@@ -22,7 +22,6 @@ a{color:#e8a948;text-decoration:none}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes glow{0%,100%{box-shadow:0 0 8px rgba(232,169,72,0.3)}50%{box-shadow:0 0 24px rgba(232,169,72,0.6)}}
-@keyframes roulette{to{transform:var(--end-rot)}}
 </style>
 </head>
 <body>
@@ -49,7 +48,7 @@ const STREAM_LINKS={
 };
 const STREAM_NAMES=['Netflix','Prime Video','Disney+','Apple TV+','BBC iPlayer','ITVX','Channel 4','Sky/Now TV','MUBI','Paramount+','BritBox','Shudder','Curzon','Cinema'];
 const POSTER_GRADS=[['#e8a948','#d35400'],['#6366f1','#a855f7'],['#22c55e','#14b8a6']];
-const LOAD_MSGS=["Scanning the archives...","Consulting the critics...","Checking the reels...","Finding hidden gems...","Cross-referencing databases...","Asking the projectionist...","Digging through the vault...","Almost there..."];
+const LOAD_MSGS=["Scanning the archives...","Checking the reels...","Finding hidden gems...","Cross-referencing the collection...","Digging through the vault...","Almost there..."];
 
 const MODE_CARDS=[
 {id:'quick',icon:'⚡',title:'Quick Pick',desc:'4 key questions, 3 great films',col:'#f59e0b'},
@@ -189,8 +188,464 @@ const FAMILY_STEPS=[
 {id:'adults',q:'Should adults enjoy it too?',opts:['🎯 Absolutely','😊 Would be nice','👶 Kid-focused is fine']}
 ];
 
+/* ===== OFFLINE FILM ENGINE — no API key needed ===== */
+const formatRuntime=m=>{const h=Math.floor(m/60),mm=m%60;return h>0?`${h}h ${mm}m`:`${mm}m`};
+const mkFilm=(title,year,genre,director,mins,description,rt,imdb,lb,ageRating,streaming,country,decade,tone,cal,kids,slot,gTags,sound)=>({
+title,year:String(year),genre,director,runtime:formatRuntime(mins),mins,description,
+rottenTomatoes:rt+'%',imdb:imdb.toFixed(1)+'/10',letterboxd:lb.toFixed(1)+'/5',
+ageRating,streaming,country,decade,tone,cal,kids:!!kids,slot,gTags,sound:sound||null
+});
 
-/* ===== UTILITIES ===== */
+const FILM_DB=[
+mkFilm('Parasite',2019,'Drama/Thriller','Bong Joon-ho',132,'A poor family cons its way into working for a wealthy household, with escalating and shocking consequences. A masterclass in tension and class satire.',99,8.5,4.6,'15','Netflix','korean','2010s',['dark','tense','mind-bending'],['oscar winner','critics fave'],false,'relaxed',['drama','thriller','dark comedy','psychological']),
+mkFilm('The Shawshank Redemption',1994,'Drama','Frank Darabont',142,'A banker wrongly imprisoned forms an enduring friendship and never gives up hope. One of the most beloved dramas ever made.',91,9.3,4.6,'15','Netflix','hollywood','1990s',['emotional','heartwarming'],['crowd pleaser','critics fave'],false,'cosy',['drama']),
+mkFilm('Everything Everywhere All at Once',2022,'Sci-Fi/Comedy','Daniels',140,'A laundromat owner discovers she must connect with parallel universe versions of herself to save existence — and her relationship with her daughter.',95,7.8,4.3,'15','Prime Video','hollywood','2020s',['mind-bending','absurd','epic'],['oscar winner','indie'],false,'energetic',['action','sci-fi','comedy','fantasy']),
+mkFilm('Get Out',2017,'Horror/Thriller','Jordan Peele',104,'A young Black man uncovers a horrifying secret when he visits his white girlfriend\'s family estate. Sharp, unnerving social satire.',98,7.7,4.0,'15','Netflix','hollywood','2010s',['tense','dark'],['critics fave','cult classic'],false,'energetic',['horror','thriller','psychological','satire']),
+mkFilm('La La Land',2016,'Musical/Romance','Damien Chazelle',128,'An aspiring actress and a jazz musician fall in love while pursuing their dreams in Los Angeles.',91,8.0,4.1,'12A','Netflix','hollywood','2010s',['dreamy','bittersweet'],['oscar winner','crowd pleaser'],false,'relaxed',['musical','romance','drama']),
+mkFilm('Mad Max: Fury Road',2015,'Action/Sci-Fi','George Miller',120,'A rogue warrior joins forces with a rebel officer in a nonstop chase across a post-apocalyptic wasteland.',97,8.1,4.3,'15','Prime Video','hollywood','2010s',['epic','raw'],['critics fave','cult classic'],false,'energetic',['action','sci-fi','dystopian','survival']),
+mkFilm('Inception',2010,'Sci-Fi/Thriller','Christopher Nolan',148,'A thief who steals secrets through dream-sharing technology is offered a chance at redemption via one final, impossible job.',87,8.8,4.2,'12A','Netflix','hollywood','2010s',['mind-bending','epic'],['crowd pleaser','box office smash'],false,'energetic',['sci-fi','thriller','heist','psychological']),
+mkFilm('The Grand Budapest Hotel',2014,'Comedy','Wes Anderson',99,'A legendary concierge and his protégé become involved in a murder mystery and a stolen painting at a famous European hotel.',92,8.1,4.3,'15','Disney+','hollywood','2010s',['quirky','light'],['critics fave','indie'],false,'relaxed',['comedy','mystery','heist']),
+mkFilm('Amélie',2001,'Romance/Comedy','Jean-Pierre Jeunet',122,'A shy Parisian waitress secretly orchestrates small acts of kindness that change the lives of everyone around her.',89,8.3,4.2,'12A','MUBI','french','2000s',['dreamy','heartwarming'],['critics fave','cult classic'],false,'cosy',['romance','comedy']),
+mkFilm('Spirited Away',2001,'Animation/Fantasy','Hayao Miyazaki',125,'A young girl wanders into a spirit world and must work in a bathhouse to free her parents from a curse.',97,8.6,4.4,'PG','Netflix','japanese','2000s',['dreamy','heartwarming'],['critics fave','oscar winner'],true,'cosy',['animation','fantasy','family']),
+mkFilm('No Country for Old Men',2007,'Crime/Thriller','Joel and Ethan Coen',122,'A hunter stumbles on a drug deal gone wrong and finds himself pursued by a relentless killer across the Texas plains.',93,8.1,4.2,'18','Netflix','hollywood','2000s',['dark','tense','raw'],['oscar winner','critics fave'],false,'relaxed',['crime','thriller','western','noir']),
+mkFilm('The Dark Knight',2008,'Action/Crime','Christopher Nolan',152,'Batman faces his greatest psychological and physical test when the Joker plunges Gotham into chaos.',94,9.0,4.5,'12A','Netflix','hollywood','2000s',['dark','epic','tense'],['crowd pleaser','box office smash'],false,'energetic',['action','crime','superhero','psychological']),
+mkFilm('Whiplash',2014,'Drama/Music','Damien Chazelle',106,'A young drummer enrols at a cutthroat music conservatory and clashes with an instructor who will stop at nothing to extract greatness.',94,8.5,4.3,'15','Prime Video','hollywood','2010s',['tense','raw'],['critics fave','indie'],false,'energetic',['drama','psychological'],{note:'A propulsive jazz-drumming score that mirrors the film\'s intensity beat for beat.',tracks:'"Whiplash", "Caravan"'}),
+mkFilm('Knives Out',2019,'Mystery/Comedy','Rian Johnson',130,'A detective investigates the death of a wealthy crime novelist, and every family member is a suspect.',97,7.9,4.0,'12A','Netflix','hollywood','2010s',['funny','quirky'],['crowd pleaser'],false,'relaxed',['mystery','comedy','crime']),
+mkFilm('Portrait of a Lady on Fire',2019,'Romance/Drama','Céline Sciamma',122,'A painter falls for the woman she has been secretly commissioned to paint in 18th-century France.',95,8.1,4.5,'15','MUBI','french','2010s',['emotional','dreamy'],['critics fave','festival winner'],false,'cosy',['romance','drama']),
+mkFilm('Dune',2021,'Sci-Fi/Adventure','Denis Villeneuve',155,'A young noble must navigate treachery and prophecy to protect his family and a vital desert planet.',83,8.0,4.1,'12A','Netflix','hollywood','2020s',['epic','dark'],['box office smash','critics fave'],false,'energetic',['sci-fi','war','survival']),
+mkFilm('Aftersun',2022,'Drama','Charlotte Wells',102,'A woman revisits memories of a holiday with her father twenty years earlier, piecing together who he really was.',97,7.6,4.2,'12A','MUBI','british','2020s',['bittersweet','emotional'],['indie','festival winner'],false,'cosy',['drama','coming-of-age']),
+mkFilm('Blade Runner 2049',2017,'Sci-Fi/Thriller','Denis Villeneuve',164,'A young blade runner uncovers a secret that leads him to a former blade runner missing for decades.',88,8.0,4.2,'15','Prime Video','hollywood','2010s',['dreamy','epic','dark'],['critics fave'],false,'relaxed',['sci-fi','thriller','noir','psychological']),
+mkFilm('Midsommar',2019,'Horror/Drama','Ari Aster',148,'A couple travels to a Swedish festival that reveals itself to be sinister as their relationship unravels in daylight-lit horror.',83,7.1,3.8,'18','Shudder','hollywood','2010s',['dark','tense'],['cult classic','indie'],false,'energetic',['horror','psychological','survival']),
+mkFilm('The Truman Show',1998,'Comedy/Drama','Peter Weir',103,'An insurance salesman gradually discovers his entire life has been a nonstop, unknowing television show.',95,8.2,4.3,'PG','Prime Video','hollywood','1990s',['quirky','bittersweet'],['critics fave','crowd pleaser'],false,'relaxed',['comedy','drama','sci-fi','satire']),
+mkFilm('Pan\'s Labyrinth',2006,'Fantasy/War','Guillermo del Toro',118,'A young girl escapes into a dark fantasy realm to cope with the horrors of Franco\'s Spain.',95,8.2,4.3,'15','Netflix','spanish','2000s',['dark','dreamy'],['oscar winner','critics fave'],false,'relaxed',['fantasy','war','drama']),
+mkFilm('Interstellar',2014,'Sci-Fi/Drama','Christopher Nolan',169,'A team of explorers travel through a wormhole in search of a new home for humanity as Earth becomes uninhabitable.',73,8.7,4.3,'12A','Paramount+','hollywood','2010s',['epic','emotional'],['crowd pleaser','box office smash'],false,'relaxed',['sci-fi','drama','survival']),
+mkFilm('The Lighthouse',2019,'Horror/Drama','Robert Eggers',109,'Two lighthouse keepers slowly descend into madness and paranoia on a remote, storm-battered island.',90,7.4,4.0,'15','MUBI','hollywood','2010s',['dark','absurd','raw'],['cult classic','indie'],false,'relaxed',['horror','drama','psychological']),
+mkFilm('The Godfather',1972,'Crime/Drama','Francis Ford Coppola',175,'The aging patriarch of an organised crime dynasty transfers control to his reluctant son.',97,9.2,4.5,'18','Paramount+','hollywood','1970s',['epic','dark'],['oscar winner','critics fave'],false,'relaxed',['crime','drama']),
+mkFilm('Lady Bird',2017,'Comedy/Drama','Greta Gerwig',94,'A headstrong teenager navigates a turbulent relationship with her mother during her senior year of high school.',99,7.4,4.0,'15','Netflix','hollywood','2010s',['heartwarming','bittersweet'],['critics fave','indie'],false,'cosy',['comedy','drama','coming-of-age']),
+mkFilm('Pulp Fiction',1994,'Crime/Drama','Quentin Tarantino',154,'The lives of two hitmen, a boxer, a gangster and his wife intertwine in four tales of violence and redemption.',92,8.9,4.3,'18','Prime Video','hollywood','1990s',['dark','funny','raw'],['cult classic','critics fave'],false,'energetic',['crime','drama']),
+mkFilm('Moonlight',2016,'Drama','Barry Jenkins',111,'A young Black man\'s struggle with identity and sexuality is explored across three chapters of his life.',98,7.4,4.1,'15','Netflix','hollywood','2010s',['emotional','raw'],['oscar winner','indie'],false,'cosy',['drama','coming-of-age']),
+mkFilm('Arrival',2016,'Sci-Fi/Drama','Denis Villeneuve',116,'A linguist is recruited to communicate with alien visitors before global tensions escalate into war.',94,7.9,4.0,'12A','Paramount+','hollywood','2010s',['dreamy','mind-bending','emotional'],['critics fave'],false,'relaxed',['sci-fi','drama','mystery']),
+mkFilm('Coco',2017,'Animation/Musical','Lee Unkrich',105,'A boy is transported to the Land of the Dead and uncovers his family\'s forgotten musical history.',97,8.4,4.3,'PG','Disney+','hollywood','2010s',['heartwarming','feel-good'],['oscar winner','crowd pleaser'],true,'cosy',['animation','family','musical']),
+mkFilm('Toy Story',1995,'Animation/Family','John Lasseter',81,'A cowboy doll feels threatened when a new spaceman action figure supplants him as a boy\'s favourite toy.',100,8.3,4.1,'U','Disney+','hollywood','1990s',['heartwarming','feel-good'],['crowd pleaser','critics fave'],true,'cosy',['animation','family','comedy']),
+mkFilm('Paddington 2',2017,'Family/Comedy','Paul King',103,'A kind-hearted bear is framed for theft and must clear his name from inside prison — with typical warmth and charm.',99,7.8,4.2,'PG','Netflix','british','2010s',['heartwarming','funny'],['critics fave','crowd pleaser'],true,'cosy',['family','comedy']),
+mkFilm('Big Hero 6',2014,'Animation/Superhero','Don Hall',102,'A boy genius and his inflatable robot companion team up with friends to become a band of high-tech heroes.',89,7.8,3.9,'PG','Disney+','hollywood','2010s',['heartwarming','feel-good'],['crowd pleaser'],true,'energetic',['animation','superhero','family']),
+mkFilm('Booksmart',2019,'Comedy','Olivia Wilde',105,'Two academic overachievers try to cram four years of fun into their last night before graduation.',97,7.1,3.9,'15','Netflix','hollywood','2010s',['funny','heartwarming'],['critics fave','indie'],false,'energetic',['comedy','coming-of-age']),
+mkFilm('Free Solo',2018,'Documentary/Survival','Jimmy Chin and Chai Vasarhelyi',100,'Climber Alex Honnold prepares to attempt the first free solo climb of El Capitan\'s 3,000-foot wall.',98,8.1,4.2,'12A','Disney+','hollywood','2010s',['tense','epic'],['oscar winner','critics fave'],false,'energetic',['documentary','survival']),
+mkFilm('Amadeus',1984,'Biography/Drama','Milos Forman',160,'A rival composer becomes consumed by jealousy over Mozart\'s effortless genius.',89,8.3,4.2,'PG','Prime Video','hollywood','1980s',['epic','emotional'],['oscar winner'],false,'relaxed',['biography','drama','musical','historical'],{note:'A soaring classical score built entirely around Mozart\'s own compositions.',tracks:'"Requiem", "The Marriage of Figaro"'}),
+mkFilm('Withnail and I',1987,'Comedy','Bruce Robinson',107,'Two unemployed actors take a disastrous holiday to the countryside in this cult British comedy.',88,7.8,4.1,'15','BritBox','british','1980s',['dark','funny','quirky'],['cult classic'],false,'relaxed',['comedy','dark comedy']),
+mkFilm('Trainspotting',1996,'Drama/Comedy','Danny Boyle',93,'A group of Edinburgh heroin addicts navigate friendship, addiction and betrayal with dark humour.',89,8.1,4.1,'18','Netflix','british','1990s',['dark','raw','funny'],['cult classic','critics fave'],false,'energetic',['drama','dark comedy','crime'],{note:'An iconic Britpop and electronic soundtrack that defined a generation.',tracks:'"Lust for Life", "Born Slippy"'}),
+mkFilm('In Bruges',2008,'Crime/Comedy','Martin McDonagh',107,'Two hitmen hide out in the Belgian city of Bruges after a job goes wrong, with darkly comic results.',82,7.9,4.0,'18','Prime Video','british','2000s',['dark','funny'],['cult classic'],false,'relaxed',['crime','comedy','dark comedy']),
+mkFilm('Shaun of the Dead',2004,'Comedy/Horror','Edgar Wright',99,'A man tries to save his ex-girlfriend and his mother from zombies while navigating his own directionless life.',89,7.9,4.0,'15','Netflix','british','2000s',['funny','absurd'],['cult classic','crowd pleaser'],false,'energetic',['comedy','horror','zombie']),
+mkFilm('Hot Fuzz',2007,'Action/Comedy','Edgar Wright',121,'A top London cop is reassigned to a sleepy village that turns out to be hiding a deadly conspiracy.',91,7.8,3.9,'15','Netflix','british','2000s',['funny','absurd'],['cult classic'],false,'energetic',['action','comedy']),
+mkFilm('The Full Monty',1997,'Comedy/Drama','Peter Cattaneo',91,'Unemployed steelworkers decide to form a striptease act to make ends meet.',96,7.2,3.7,'15','BritBox','british','1990s',['heartwarming','funny'],['crowd pleaser','box office smash'],false,'cosy',['comedy','drama']),
+mkFilm('Local Hero',1983,'Comedy/Drama','Bill Forsyth',111,'An American oil executive sent to buy up a Scottish coastal village finds himself falling for the place and its people.',93,7.5,4.0,'PG','Curzon','british','1980s',['dreamy','heartwarming'],['cult classic','indie'],false,'cosy',['comedy','drama']),
+mkFilm('Skyfall',2012,'Action/Spy','Sam Mendes',143,'Bond\'s loyalty to M is tested as her past comes back to haunt her, threatening MI6 itself.',92,7.7,3.8,'12A','Prime Video','british','2010s',['epic','tense'],['box office smash','crowd pleaser'],false,'energetic',['action','spy']),
+mkFilm('Tinker Tailor Soldier Spy',2011,'Spy/Thriller','Tomas Alfredson',127,'A retired intelligence officer is brought back to uncover a Soviet double agent inside British intelligence.',83,7.1,3.8,'15','Prime Video','british','2010s',['dark','tense'],['critics fave'],false,'relaxed',['spy','thriller','mystery']),
+mkFilm('Oldboy',2003,'Thriller/Revenge','Park Chan-wook',120,'A man imprisoned without explanation for fifteen years is suddenly released and given five days to find out why.',81,8.4,4.2,'18','MUBI','korean','2000s',['dark','tense','raw'],['cult classic','critics fave','festival winner'],false,'relaxed',['thriller','revenge','mystery']),
+mkFilm('Train to Busan',2016,'Horror/Zombie','Yeon Sang-ho',118,'Passengers on a train to Busan fight for survival as a zombie outbreak spreads across South Korea.',95,7.6,3.9,'15','Netflix','korean','2010s',['tense','emotional'],['cult classic','crowd pleaser'],false,'energetic',['horror','zombie','action','survival']),
+mkFilm('Drive My Car',2021,'Drama','Ryusuke Hamaguchi',179,'A widowed theatre director forms an unexpected bond with the young woman assigned to drive him during a production of Uncle Vanya.',97,7.5,4.0,'15','MUBI','japanese','2020s',['dreamy','emotional','bittersweet'],['oscar winner','festival winner'],false,'cosy',['drama']),
+mkFilm('Your Name',2016,'Animation/Romance','Makoto Shinkai',106,'Two teenagers mysteriously begin swapping bodies, growing closer despite never having met.',98,8.4,4.2,'PG','Netflix','japanese','2010s',['dreamy','emotional'],['critics fave','crowd pleaser'],false,'cosy',['animation','romance','fantasy']),
+mkFilm('The Secret in Their Eyes',2009,'Mystery/Crime','Juan José Campanella',129,'A retired legal counsellor writes a novel about an unresolved murder case that still haunts him.',92,8.2,4.1,'15','MUBI','spanish','2000s',['dark','emotional'],['oscar winner'],false,'relaxed',['mystery','crime','romance']),
+mkFilm('Amores Perros',2000,'Drama/Crime','Alejandro González Iñárritu',154,'Three interconnected stories in Mexico City collide around a single, devastating car crash.',92,8.1,4.1,'18','MUBI','spanish','2000s',['dark','raw'],['critics fave','festival winner'],false,'relaxed',['drama','crime']),
+mkFilm('Life is Beautiful',1997,'Drama/Comedy','Roberto Benigni',116,'A father uses his imagination to shield his son from the horrors of a Nazi concentration camp.',80,8.6,4.3,'PG','Netflix','italian','1990s',['heartwarming','bittersweet'],['oscar winner','crowd pleaser'],false,'cosy',['drama','comedy','war']),
+mkFilm('Cinema Paradiso',1988,'Drama/Romance','Giuseppe Tornatore',155,'A filmmaker recalls his childhood friendship with the projectionist at his village cinema.',92,8.5,4.3,'PG','MUBI','italian','1980s',['heartwarming','bittersweet','dreamy'],['oscar winner','critics fave'],false,'cosy',['drama','romance']),
+mkFilm('Run Lola Run',1998,'Action/Thriller','Tom Tykwer',81,'A woman has twenty minutes to find a huge sum of money to save her boyfriend\'s life, replayed across three possible outcomes.',82,7.7,3.9,'15','MUBI','german','1990s',['tense','epic'],['cult classic'],false,'energetic',['action','thriller'],{note:'A pounding techno score that drives the film\'s relentless pace.',tracks:'"Believe", techno score by Tykwer'}),
+mkFilm('Das Boot',1981,'War/Drama','Wolfgang Petersen',149,'The crew of a German U-boat endures claustrophobic terror during a WWII patrol in the Atlantic.',98,8.4,4.3,'15','Prime Video','german','1980s',['tense','raw','epic'],['critics fave'],false,'relaxed',['war','drama','survival']),
+mkFilm('Force Majeure',2014,'Drama/Comedy','Ruben Östlund',118,'A family holiday is upended after the father\'s instinctive reaction to an avalanche threat exposes cracks in the marriage.',89,7.3,3.9,'15','MUBI','scandinavian','2010s',['dark','funny'],['festival winner','indie'],false,'relaxed',['drama','dark comedy']),
+mkFilm('Let the Right One In',2008,'Horror/Romance','Tomas Alfredson',114,'A bullied boy befriends a mysterious girl who turns out to be a vampire, in this tender and unsettling tale.',98,7.9,4.1,'15','Shudder','scandinavian','2000s',['dark','dreamy'],['cult classic','critics fave'],false,'relaxed',['horror','romance']),
+mkFilm('Lagaan',2001,'Sports/Musical','Ashutosh Gowariker',224,'Villagers challenge their British colonial rulers to a high-stakes game of cricket to avoid crippling taxes.',85,8.1,3.9,'U','Netflix','indian','2000s',['epic','heartwarming'],['crowd pleaser'],true,'relaxed',['sports','drama','musical','historical']),
+mkFilm('RRR',2022,'Action/Historical','S.S. Rajamouli',187,'Two real-life revolutionaries form a friendship before their paths diverge in colonial-era India.',95,7.8,4.1,'12A','Netflix','indian','2020s',['epic','funny'],['crowd pleaser','cult classic'],false,'energetic',['action','historical','musical']),
+mkFilm('Ocean\'s Eleven',2001,'Heist/Comedy','Steven Soderbergh',116,'A charming thief assembles a crew to pull off three simultaneous casino heists in Las Vegas.',83,7.7,3.8,'12A','Prime Video','hollywood','2000s',['funny','quirky'],['crowd pleaser','box office smash'],false,'energetic',['heist','comedy','crime']),
+mkFilm('Spider-Man: Into the Spider-Verse',2018,'Animation/Superhero','Bob Persichetti, Peter Ramsey, Rodney Rothman',117,'A teenager becomes his universe\'s Spider-Man and teams up with alternate-dimension counterparts to save them all.',97,8.4,4.3,'PG','Netflix','hollywood','2010s',['epic','feel-good'],['oscar winner','crowd pleaser'],true,'energetic',['animation','superhero','action']),
+mkFilm('Little Miss Sunshine',2006,'Comedy/Drama','Jonathan Dayton and Valerie Faris',101,'A dysfunctional family drives cross-country so their daughter can compete in a children\'s beauty pageant.',91,7.8,4.0,'15','Disney+','hollywood','2000s',['heartwarming','funny','bittersweet'],['critics fave','indie'],false,'cosy',['comedy','drama','road movie']),
+mkFilm('12 Angry Men',1957,'Drama/Courtroom','Sidney Lumet',96,'A lone juror tries to convince eleven others that a murder case is not as open-and-shut as it seems.',100,9.0,4.5,'U','Prime Video','hollywood','1950s',['tense','raw'],['critics fave'],false,'relaxed',['drama','courtroom']),
+mkFilm('Apollo 13',1995,'Drama/Survival','Ron Howard',140,'NASA must bring a crippled spacecraft and its crew safely home after an explosion cripples their mission to the moon.',95,7.7,4.0,'PG','Netflix','hollywood','1990s',['tense','epic'],['crowd pleaser','true story'],false,'relaxed',['drama','survival','historical']),
+mkFilm('Titanic',1997,'Romance/Disaster','James Cameron',195,'A penniless artist and a wealthy young woman fall in love aboard the doomed RMS Titanic.',88,7.9,3.9,'12A','Disney+','hollywood','1990s',['epic','emotional'],['oscar winner','box office smash'],false,'relaxed',['romance','disaster','historical']),
+mkFilm('Unforgiven',1992,'Western/Drama','Clint Eastwood',130,'A retired gunslinger takes one last job, forced to confront the violence of his past.',96,8.2,4.2,'18','Prime Video','hollywood','1990s',['dark','raw'],['oscar winner','critics fave'],false,'relaxed',['western','drama']),
+mkFilm('WALL-E',2008,'Animation/Sci-Fi','Andrew Stanton',98,'A lonely waste-collecting robot on an abandoned Earth falls for a sleek probe sent to search for signs of life.',95,8.4,4.2,'U','Disney+','hollywood','2000s',['heartwarming','dreamy'],['oscar winner','crowd pleaser'],true,'cosy',['animation','sci-fi','family']),
+mkFilm('Anatomy of a Fall',2023,'Courtroom/Drama','Justine Triet',152,'A writer becomes the prime suspect in her husband\'s death, with only her son as a potential witness.',96,7.7,4.1,'15','Curzon','french','2020s',['tense','dark'],['oscar winner','festival winner'],false,'relaxed',['courtroom','drama','mystery']),
+mkFilm('Past Lives',2023,'Romance/Drama','Celine Song',105,'Childhood sweethearts reconnect decades later, forced to confront the life they might have had together.',96,7.9,4.0,'12A','MUBI','hollywood','2020s',['bittersweet','emotional'],['critics fave','indie','festival winner'],false,'cosy',['romance','drama']),
+mkFilm('Poor Things',2023,'Comedy/Fantasy','Yorgos Lanthimos',141,'A young woman brought back to life by an unorthodox scientist runs off to experience the world on her own terms.',92,7.9,4.0,'18','Disney+','hollywood','2020s',['absurd','quirky','epic'],['oscar winner','critics fave'],false,'relaxed',['comedy','fantasy','drama'])
+];
+
+const ACTOR_DB={
+'tom hanks':{label:'Tom Hanks',arc:'From beloved comedic everyman to one of the most trusted dramatic actors of his generation, Hanks built a career on decency, warmth and quiet resilience.',films:[
+{title:'Forrest Gump',year:1994,role:'Forrest Gump',genre:'Drama',director:'Robert Zemeckis',rt:71,imdb:8.8,lb:4.0},
+{title:'Saving Private Ryan',year:1998,role:'Capt. John Miller',genre:'War',director:'Steven Spielberg',rt:93,imdb:8.6,lb:4.3},
+{title:'Cast Away',year:2000,role:'Chuck Noland',genre:'Drama',director:'Robert Zemeckis',rt:89,imdb:7.8,lb:4.0},
+{title:'Catch Me If You Can',year:2002,role:'Carl Hanratty',genre:'Crime',director:'Steven Spielberg',rt:96,imdb:7.9,lb:4.0},
+{title:'Big',year:1988,role:'Josh Baskin',genre:'Comedy',director:'Penny Marshall',rt:98,imdb:7.4,lb:3.8}
+]},
+'meryl streep':{label:'Meryl Streep',arc:'Widely considered the greatest screen actress of her generation, Streep has moved fluidly between searing drama and razor-sharp comedy for five decades.',films:[
+{title:'Sophie\'s Choice',year:1982,role:'Sophie Zawistowska',genre:'Drama',director:'Alan J. Pakula',rt:88,imdb:7.9,lb:4.1},
+{title:'The Devil Wears Prada',year:2006,role:'Miranda Priestly',genre:'Comedy',director:'David Frankel',rt:75,imdb:6.9,lb:3.8},
+{title:'Kramer vs. Kramer',year:1979,role:'Joanna Kramer',genre:'Drama',director:'Robert Benton',rt:89,imdb:7.7,lb:3.9},
+{title:'Doubt',year:2008,role:'Sister Aloysius',genre:'Drama',director:'John Patrick Shanley',rt:80,imdb:7.5,lb:3.8},
+{title:'Out of Africa',year:1985,role:'Karen Blixen',genre:'Drama',director:'Sydney Pollack',rt:60,imdb:7.2,lb:3.7}
+]},
+'denzel washington':{label:'Denzel Washington',arc:'A commanding, magnetic screen presence equally at home in morally complex villains and steadfast heroes.',films:[
+{title:'Training Day',year:2001,role:'Alonzo Harris',genre:'Crime',director:'Antoine Fuqua',rt:82,imdb:7.7,lb:3.9},
+{title:'Malcolm X',year:1992,role:'Malcolm X',genre:'Biography',director:'Spike Lee',rt:94,imdb:7.7,lb:4.1},
+{title:'Glory',year:1989,role:'Pvt. Trip',genre:'War',director:'Edward Zwick',rt:93,imdb:7.8,lb:4.0},
+{title:'Fences',year:2016,role:'Troy Maxson',genre:'Drama',director:'Denzel Washington',rt:91,imdb:7.2,lb:3.8},
+{title:'American Gangster',year:2007,role:'Frank Lucas',genre:'Crime',director:'Ridley Scott',rt:80,imdb:7.8,lb:3.8}
+]},
+'cate blanchett':{label:'Cate Blanchett',arc:'A chameleonic performer whose precision and range have made her one of the defining actors of the 21st century.',films:[
+{title:'Blue Jasmine',year:2013,role:'Jasmine',genre:'Drama',director:'Woody Allen',rt:91,imdb:7.3,lb:3.9},
+{title:'Elizabeth',year:1998,role:'Queen Elizabeth I',genre:'Historical',director:'Shekhar Kapur',rt:86,imdb:7.5,lb:3.8},
+{title:'Carol',year:2015,role:'Carol Aird',genre:'Romance',director:'Todd Haynes',rt:94,imdb:7.2,lb:4.1},
+{title:'Tár',year:2022,role:'Lydia Tár',genre:'Drama',director:'Todd Field',rt:91,imdb:7.4,lb:4.0},
+{title:'The Aviator',year:2004,role:'Katharine Hepburn',genre:'Biography',director:'Martin Scorsese',rt:87,imdb:7.5,lb:3.9}
+]},
+'leonardo dicaprio':{label:'Leonardo DiCaprio',arc:'From teen heartthrob to one of the most committed method actors of his era, DiCaprio has built a career chasing obsessive, driven characters.',films:[
+{title:'The Revenant',year:2015,role:'Hugh Glass',genre:'Survival',director:'Alejandro González Iñárritu',rt:78,imdb:8.0,lb:4.0},
+{title:'The Wolf of Wall Street',year:2013,role:'Jordan Belfort',genre:'Comedy',director:'Martin Scorsese',rt:80,imdb:8.2,lb:4.1},
+{title:'Titanic',year:1997,role:'Jack Dawson',genre:'Romance',director:'James Cameron',rt:88,imdb:7.9,lb:3.8},
+{title:'Inception',year:2010,role:'Cobb',genre:'Sci-Fi',director:'Christopher Nolan',rt:87,imdb:8.8,lb:4.2},
+{title:'What\'s Eating Gilbert Grape',year:1993,role:'Arnie Grape',genre:'Drama',director:'Lasse Hallström',rt:90,imdb:7.7,lb:3.9}
+]},
+'viola davis':{label:'Viola Davis',arc:'An actor of extraordinary emotional force, equally powerful in quiet, devastating close-ups and full-throated confrontation.',films:[
+{title:'Fences',year:2016,role:'Rose Maxson',genre:'Drama',director:'Denzel Washington',rt:91,imdb:7.2,lb:3.9},
+{title:'The Help',year:2011,role:'Aibileen Clark',genre:'Drama',director:'Tate Taylor',rt:76,imdb:8.1,lb:4.0},
+{title:'Doubt',year:2008,role:'Mrs. Miller',genre:'Drama',director:'John Patrick Shanley',rt:80,imdb:7.5,lb:3.8},
+{title:'Widows',year:2018,role:'Veronica Rawlins',genre:'Heist',director:'Steve McQueen',rt:91,imdb:6.8,lb:3.7},
+{title:'Ma Rainey\'s Black Bottom',year:2020,role:'Ma Rainey',genre:'Musical',director:'George C. Wolfe',rt:96,imdb:6.9,lb:3.7}
+]},
+'brad pitt':{label:'Brad Pitt',arc:'Movie-star charisma paired with a genuine appetite for strange, risky choices under the surface.',films:[
+{title:'Fight Club',year:1999,role:'Tyler Durden',genre:'Drama',director:'David Fincher',rt:79,imdb:8.8,lb:4.2},
+{title:'Once Upon a Time in Hollywood',year:2019,role:'Cliff Booth',genre:'Comedy',director:'Quentin Tarantino',rt:85,imdb:7.6,lb:3.9},
+{title:'12 Years a Slave',year:2013,role:'William Ford',genre:'Historical',director:'Steve McQueen',rt:96,imdb:8.1,lb:4.1},
+{title:'Se7en',year:1995,role:'Det. David Mills',genre:'Thriller',director:'David Fincher',rt:82,imdb:8.6,lb:4.2},
+{title:'Moneyball',year:2011,role:'Billy Beane',genre:'Sports',director:'Bennett Miller',rt:94,imdb:7.6,lb:3.9}
+]},
+'florence pugh':{label:'Florence Pugh',arc:'A rising force known for raw, unguarded performances that swing between vulnerability and steel.',films:[
+{title:'Midsommar',year:2019,role:'Dani',genre:'Horror',director:'Ari Aster',rt:83,imdb:7.1,lb:3.8},
+{title:'Little Women',year:2019,role:'Amy March',genre:'Drama',director:'Greta Gerwig',rt:95,imdb:7.8,lb:4.0},
+{title:'Lady Macbeth',year:2016,role:'Katherine',genre:'Drama',director:'William Oldroyd',rt:89,imdb:6.7,lb:3.7},
+{title:'Oppenheimer',year:2023,role:'Jean Tatlock',genre:'Biography',director:'Christopher Nolan',rt:93,imdb:8.3,lb:4.2},
+{title:'Don\'t Worry Darling',year:2022,role:'Alice',genre:'Thriller',director:'Olivia Wilde',rt:39,imdb:6.2,lb:3.0}
+]},
+'ryan gosling':{label:'Ryan Gosling',arc:'A performer who oscillates between brooding intensity and deadpan comic timing, rarely repeating himself.',films:[
+{title:'La La Land',year:2016,role:'Sebastian',genre:'Musical',director:'Damien Chazelle',rt:91,imdb:8.0,lb:4.1},
+{title:'Blade Runner 2049',year:2017,role:'K',genre:'Sci-Fi',director:'Denis Villeneuve',rt:88,imdb:8.0,lb:4.2},
+{title:'Drive',year:2011,role:'Driver',genre:'Thriller',director:'Nicolas Winding Refn',rt:92,imdb:7.8,lb:4.0},
+{title:'Half Nelson',year:2006,role:'Dan Dunne',genre:'Drama',director:'Ryan Fleck',rt:91,imdb:7.2,lb:3.8},
+{title:'Barbie',year:2023,role:'Ken',genre:'Comedy',director:'Greta Gerwig',rt:88,imdb:6.9,lb:3.7}
+]},
+'saoirse ronan':{label:'Saoirse Ronan',arc:'One of the finest actors of her generation, known for playing sharp, searching young women navigating who they want to become.',films:[
+{title:'Lady Bird',year:2017,role:'Christine "Lady Bird" McPherson',genre:'Comedy',director:'Greta Gerwig',rt:99,imdb:7.4,lb:4.0},
+{title:'Little Women',year:2019,role:'Jo March',genre:'Drama',director:'Greta Gerwig',rt:95,imdb:7.8,lb:4.0},
+{title:'Atonement',year:2007,role:'Briony Tallis',genre:'Drama',director:'Joe Wright',rt:83,imdb:7.8,lb:3.9},
+{title:'Brooklyn',year:2015,role:'Eilis Lacey',genre:'Romance',director:'John Crowley',rt:97,imdb:7.5,lb:3.9},
+{title:'The Grand Budapest Hotel',year:2014,role:'Agatha',genre:'Comedy',director:'Wes Anderson',rt:92,imdb:8.1,lb:4.3}
+]},
+'oscar isaac':{label:'Oscar Isaac',arc:'A magnetic, versatile lead who moves easily between blockbuster franchises and knotty independent drama.',films:[
+{title:'Inside Llewyn Davis',year:2013,role:'Llewyn Davis',genre:'Drama',director:'Joel and Ethan Coen',rt:93,imdb:7.4,lb:4.0},
+{title:'Ex Machina',year:2014,role:'Nathan Bateman',genre:'Sci-Fi',director:'Alex Garland',rt:92,imdb:7.7,lb:3.9},
+{title:'A Most Violent Year',year:2014,role:'Abel Morales',genre:'Crime',director:'J.C. Chandor',rt:90,imdb:7.0,lb:3.8},
+{title:'Star Wars: The Force Awakens',year:2015,role:'Poe Dameron',genre:'Sci-Fi',director:'J.J. Abrams',rt:93,imdb:7.8,lb:3.7},
+{title:'Dune',year:2021,role:'Duke Leto Atreides',genre:'Sci-Fi',director:'Denis Villeneuve',rt:83,imdb:8.0,lb:4.1}
+]},
+'tilda swinton':{label:'Tilda Swinton',arc:'An icon of strange, otherworldly precision who treats every role as an opportunity for transformation.',films:[
+{title:'We Need to Talk About Kevin',year:2011,role:'Eva Khatchadourian',genre:'Drama',director:'Lynne Ramsay',rt:77,imdb:7.5,lb:3.9},
+{title:'Michael Clayton',year:2007,role:'Karen Crowder',genre:'Thriller',director:'Tony Gilroy',rt:91,imdb:7.3,lb:3.8},
+{title:'Orlando',year:1992,role:'Orlando',genre:'Fantasy',director:'Sally Potter',rt:85,imdb:7.2,lb:3.9},
+{title:'Only Lovers Left Alive',year:2013,role:'Eve',genre:'Fantasy',director:'Jim Jarmusch',rt:85,imdb:7.2,lb:3.9},
+{title:'The Grand Budapest Hotel',year:2014,role:'Madame D.',genre:'Comedy',director:'Wes Anderson',rt:92,imdb:8.1,lb:4.3}
+]}
+};
+
+/* ===== SCORING ENGINE ===== */
+const normTxt=s=>String(s||'').toLowerCase()
+.replace(/[\u{1F000}-\u{1FFFF}\u{2190}-\u{2BFF}\u{FE00}-\u{FE0F}‍]/gu,'')
+.replace(/['']/g,'').trim();
+const stripEmoji=s=>String(s||'')
+.replace(/[\u{1F000}-\u{1FFFF}\u{2190}-\u{2BFF}\u{FE00}-\u{FE0F}‍]/gu,'').trim();
+
+const AGE_ORDER=['u','pg','12a','15','18'];
+const ERA_MAP={'brand new':['2020s'],'recent':['2020s','2010s'],'2010s':['2010s'],'2000s':['2000s'],'90s':['1990s'],'80s':['1980s'],'70s or earlier':['1970s','1950s']};
+const RUNTIME_MAP={'quick':[0,89],'standard':[90,120],'long':[121,150],'epic':[151,999]};
+const COUNTRY_MAP={'english only':['hollywood','british'],'hollywood':['hollywood'],'british':['british'],'french':['french'],'korean':['korean'],'japanese':['japanese'],'scandinavian':['scandinavian'],'indian':['indian'],'spanish':['spanish'],'italian':['italian'],'german':['german']};
+
+const scoreFilm=(film,answers)=>{
+let score=Math.random()*1.2;
+const reasons=[];
+for(const key of Object.keys(answers)){
+const rawVal=answers[key];
+if(rawVal==null||rawVal==='')continue;
+if(key==='streaming'){
+const arr=Array.isArray(rawVal)?rawVal:[];
+if(arr.length&&!arr.includes('ALL')){ if(arr.includes(film.streaming)){score+=2;reasons.push('available on '+film.streaming);} else score-=1; }
+continue;
+}
+const val=Array.isArray(rawVal)?rawVal.map(normTxt).join(' '):normTxt(rawVal);
+if(!val)continue;
+switch(key){
+case 'genre':
+for(const g of film.gTags){ if(val.includes(g)){score+=4;reasons.push(g);} }
+break;
+case 'tone': case 'vibe':
+for(const t of film.tone){ if(val.includes(t)){score+=3;reasons.push(t+' tone');} }
+break;
+case 'calibre':
+for(const c of film.cal){ if(val.includes(c)){score+=3;reasons.push(c);} }
+break;
+case 'country':{
+const k=Object.keys(COUNTRY_MAP).find(k=>val.includes(k));
+if(k){ if(COUNTRY_MAP[k].includes(film.country))score+=3; else score-=2; }
+break;}
+case 'era':{
+const k=Object.keys(ERA_MAP).find(k=>val.includes(k));
+if(k){ if(ERA_MAP[k].includes(film.decade))score+=3; else score-=1; }
+break;}
+case 'runtime':{
+const k=Object.keys(RUNTIME_MAP).find(k=>val.includes(k));
+if(k){ const[lo,hi]=RUNTIME_MAP[k]; if(film.mins>=lo&&film.mins<=hi)score+=2; else score-=1; }
+break;}
+case 'age':
+if(!val.includes("don't mind")){
+const want=AGE_ORDER.indexOf(val);
+const have=AGE_ORDER.indexOf(film.ageRating.toLowerCase());
+if(want>=0&&have>=0){ if(have<=want)score+=2; else score-=5; }
+}
+break;
+case 'who':
+if(val.includes('family')||val.includes('kids')){ if(film.kids)score+=5; else score-=3; }
+else if(val.includes('date')){ if(film.tone.includes('dreamy')||film.tone.includes('emotional')||film.gTags.includes('romance'))score+=2; }
+else if(val.includes('nerds')){ if(film.cal.includes('cult classic')||film.cal.includes('critics fave'))score+=2; }
+break;
+case 'pacing':
+if(val.includes('slow')){ if(film.tone.includes('dreamy')||film.tone.includes('dark'))score+=2; }
+else if(val.includes('fast')||val.includes('relentless')){ if(film.tone.includes('tense')||film.tone.includes('epic'))score+=2; }
+break;
+case 'adventure':
+if(val.includes('wildcard')||val.includes('push')){ if(film.cal.includes('cult classic')||film.cal.includes('hidden gem')||film.cal.includes('underrated'))score+=2; }
+else if(val.includes('safe')){ if(film.cal.includes('crowd pleaser'))score+=2; }
+break;
+case 'actors': case 'vibeFilms': case 'extra':{
+const words=val.split(/[,\s]+/).filter(w=>w.length>3);
+for(const w of words){ if(film.title.toLowerCase().includes(w)||film.director.toLowerCase().includes(w)){score+=5;reasons.push('matches '+w);} }
+break;}
+case 'avoid':
+if(val.includes('violence')||val.includes('gore')){ if(film.ageRating==='18'&&(film.gTags.includes('horror')||film.gTags.includes('war')||film.gTags.includes('crime')))score-=6; }
+if(val.includes('jump scares')){ if(film.gTags.includes('horror'))score-=6; }
+break;
+default: break;
+}
+}
+return {score,reasons};
+};
+
+const toFilmObj=(f,extraReasons=[],answers={})=>{
+const uniq=[...new Set(extraReasons)].slice(0,3);
+const why=uniq.length?`Matches your pick for ${uniq.join(', ')} — a strong fit for tonight.`:`A well-loved film that should hit the spot based on what you're after.`;
+return {title:f.title,year:f.year,genre:f.genre,director:f.director,runtime:f.runtime,description:f.description,whyThisFilm:why,rottenTomatoes:f.rottenTomatoes,imdb:f.imdb,letterboxd:f.letterboxd,ageRating:f.ageRating,streaming:f.streaming};
+};
+
+const pickFilms=(answers,count,excludeTitles=[],lbTitles=[])=>{
+const banned=new Set([...excludeTitles,...lbTitles].map(t=>String(t).toLowerCase()));
+const pool=FILM_DB.filter(f=>!banned.has(f.title.toLowerCase()));
+const scored=pool.map(f=>({f,...scoreFilm(f,answers)})).sort((a,b)=>b.score-a.score);
+let top=scored.slice(0,Math.max(count*4,12));
+for(let i=top.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[top[i],top[j]]=[top[j],top[i]];}
+const chosen=top.slice(0,count).sort((a,b)=>b.score-a.score);
+return chosen.map(({f,reasons})=>toFilmObj(f,reasons,answers));
+};
+
+const buildReason=(answers,films)=>{
+const parts=[];
+if(answers.genre)parts.push(stripEmoji(answers.genre));
+if(answers.tone||answers.vibe)parts.push(stripEmoji(answers.tone||answers.vibe));
+if(answers.who)parts.push(stripEmoji(answers.who));
+return parts.length?`Handpicked to match ${parts.join(', ')}.`:`Three great films handpicked for tonight.`;
+};
+
+const localVerdict=(fA,fB)=>{
+const scoreOf=f=>{const rt=parseFloat(f.rottenTomatoes)||0;const imdb=(parseFloat(f.imdb)||0)*10;return (rt+imdb)/2;};
+const sA=scoreOf(fA),sB=scoreOf(fB);
+const winner=sA>=sB?fA:fB, loser=winner===fA?fB:fA;
+const diff=Math.abs(sA-sB);
+const verdict=diff<3?`Both ${fA.title} and ${fB.title} are close calls — either one is a safe bet tonight.`:`${winner.title} edges it, with stronger combined scores than ${loser.title}.`;
+const winReason=diff<3?`It really comes down to mood — flip a coin.`:`Higher combined critic and audience scores made the difference.`;
+return {verdict,winner:winner.title,winReason};
+};
+
+const totToAnswers=chosenArr=>{
+const hints=[];
+chosenArr.forEach(c=>{
+const n=normTxt(c);
+if(n.includes('twist'))hints.push('mind-bending');
+if(n.includes('make me cry'))hints.push('emotional');
+if(n.includes('make me laugh'))hints.push('funny');
+if(n.includes('dark'))hints.push('dark');
+if(n.includes('light'))hints.push('light');
+if(n.includes('non-stop'))hints.push('tense');
+if(n.includes('epic'))hints.push('epic');
+if(n.includes('intimate'))hints.push('raw');
+});
+return {tone:hints.join(' ')};
+};
+
+/* ===== TEMPLATE-BASED MODE GENERATORS (no fabricated facts about arbitrary titles) ===== */
+const THEME_LIST=[
+{name:'Isolation and connection',tone:'dreamy',keywords:['lonely','loneliness','isolation','alone']},
+{name:'Identity and self-discovery',tone:'raw',keywords:['identity','self']},
+{name:'Power and its cost',tone:'dark',keywords:['power','control','corruption']},
+{name:'Family bonds under pressure',tone:'emotional',keywords:['family']},
+{name:'What we lose chasing control',tone:'tense',keywords:['obsession']},
+{name:'The blurry line between right and wrong',tone:'dark',keywords:['redemption','loss','freedom']}
+];
+
+const randomPick=arr=>arr[Math.floor(Math.random()*arr.length)];
+
+const genParty=answers=>{
+const film=answers.film||'your film';
+const vibe=normTxt(answers.vibe||'');
+const dietary=normTxt(answers.dietary||'');
+const LIGHT={'party':'Bright, colourful string lights and a bit of movement to keep the energy up.','cosy':'Warm lamps only, blankets out, screen brightness nudged up slightly to compensate.','classy':'Dim, warm lighting with candles if you have them — think supper club, not cinema.','silly':"Whatever lighting you've got is fine — nobody's watching the walls tonight.",'sophisticated':'Low ambient lighting, maybe one warm lamp — let the film do the talking.','surprise me':'Dim it right down and let the film provide the light show.'};
+const lightKey=Object.keys(LIGHT).find(k=>vibe.includes(k));
+const lighting=LIGHT[lightKey]||LIGHT['cosy'];
+const FOOD={'vegetarian':[{item:'Loaded veggie nachos',desc:'Easy to share, easy to eat in the dark.'},{item:'Halloumi skewers',desc:"A crowd-pleaser that's ready in minutes."}],'vegan':[{item:'Spiced roasted chickpeas',desc:'A crunchy, savoury snack that keeps hands busy.'},{item:'Vegan popcorn with nutritional yeast',desc:'Classic movie snack, dairy-free twist.'}],'gluten-free':[{item:'Popcorn (naturally gluten-free)',desc:'The reliable classic.'},{item:'Rice crackers and dips',desc:'Easy to prep, safe for everyone.'}],'nut allergy':[{item:'Popcorn and pretzels',desc:'Nut-free classics everyone can share.'}],'dairy-free':[{item:'Fruit and dark chocolate board',desc:'Sweet without the dairy.'}],'no restrictions':[{item:'Classic popcorn bar',desc:'Set out a few toppings — salted, sweet, spiced.'},{item:'Pizza, sliced small',desc:'Easy to eat without missing the screen.'}]};
+const foodKey=Object.keys(FOOD).find(k=>dietary.includes(k))||'no restrictions';
+const food=FOOD[foodKey];
+const drink=[{item:'A signature non-alcoholic mocktail',desc:'Pick one drink and make it "the film\'s drink" for the night.'},{item:'Hot chocolate or mulled cider',desc:'Great if the vibe is cosy rather than lively.'}];
+const before={playlist:'A short, low-key instrumental playlist to ease everyone in before the film starts.',activity:`Have everyone guess how ${film} ends before you press play — biggest miss buys the first round of snacks.`};
+const nextPick=randomPick(FILM_DB);
+const after={discussion:[`What was your favourite moment in ${film}?`,`Did the ending land for you, or did it feel rushed?`,`Who would you recast if it was remade today?`],trivia:[`See who can name the most characters from ${film} without looking it up.`,`Rate ${film} out of 10 as a group and see who disagrees most.`],watchNext:{title:nextPick.title,year:nextPick.year,reason:'Keeps a similar mood going without repeating the same ground.'}};
+return {film,lighting,before,food,drink,after};
+};
+
+const genDebrief=answers=>{
+const film=answers.film||'the film';
+const standout=normTxt(answers.standout||'');
+const spoilers=normTxt(answers.spoilers||'');
+const THEMES_BY_STANDOUT={'twist':['Trust and deception','Nothing is quite as it seems','The cost of secrets'],'performances':['Character over plot','What a performance can carry alone'],'visuals':["Show, don't tell",'Composition as storytelling'],'soundtrack':['Music as a second script','Emotion carried by sound'],'story':['Cause and consequence','What the plot is really about underneath'],'dialogue':["What's said versus what's meant"],'humour':['Comedy as a way of coping'],'world':['Rules of the world and who breaks them']};
+const key=Object.keys(THEMES_BY_STANDOUT).find(k=>standout.includes(k));
+const themes=THEMES_BY_STANDOUT[key]||['Identity and change','Connection and distance','What the ending really means'];
+const missed=['Rewatch the opening scene — first frames often set up the ending.','Pay attention to background details on a second viewing — directors love planting them early.'];
+const directorIntent=`It's hard to say for certain without more context, but films that lean heavily on ${standout||'this'} usually do it deliberately — putting the audience in the character's head rather than just telling the story. Worth a rewatch with that lens.`;
+const backstory=`Offline mode doesn't have verified production trivia for ${film} — for the real behind-the-scenes story, a director's commentary or "making of" feature is the best source.`;
+const discussion=spoilers.includes('no spoilers')?[`What kept you hooked without giving anything away?`,`Would you recommend ${film} to a friend, and why?`]:[`Did the ending of ${film} feel earned?`,`Which character's choices did you agree with least?`,`What would you change about the third act?`];
+const watchNextChain=[randomPick(FILM_DB),randomPick(FILM_DB)].map(p=>({title:p.title,year:p.year,reason:'Similar mood, different story — a natural next watch.'}));
+return {film,themes,missed,directorIntent,backstory,discussion,watchNextChain};
+};
+
+const genBattle=answers=>{
+const t1=answers.film1||'Film One', t2=answers.film2||'Film Two';
+const findMatch=t=>FILM_DB.find(f=>f.title.toLowerCase()===t.toLowerCase())||FILM_DB.find(f=>f.title.toLowerCase().includes(t.toLowerCase())&&t.length>3);
+const m1=findMatch(t1), m2=findMatch(t2);
+const criteria=stripEmoji(answers.criteria||'overall quality');
+const scoreOf=f=>f?(parseFloat(f.rottenTomatoes)+parseFloat(f.imdb)*10)/2:50+Math.random()*30;
+const s1=scoreOf(m1), s2=scoreOf(m2);
+const film1={title:t1,argument:`${t1} makes its case on ${criteria} — it's the kind of film that sticks with you well after the credits roll.`,strengths:['Strong sense of identity','Memorable execution of its central idea']};
+const film2={title:t2,argument:`${t2} counters with its own take on ${criteria}, and has just as loyal a following.`,strengths:['Confident pacing','A distinct voice of its own']};
+const bothKnown=!!(m1&&m2);
+const winner=s1>=s2?t1:t2, loser=winner===t1?t2:t1;
+const verdict=bothKnown?`Going by combined critic and audience scores, ${winner} narrowly wins out over ${loser} — though both are well worth your time.`:`This one's genuinely close to a coin flip based on vibe rather than hard data — both have passionate fans.`;
+const winReason=bothKnown?'Higher aggregate scores across the board.':'Flip a coin — both have their fans.';
+return {film1,film2,verdict,winner,winReason};
+};
+
+const genDNA=(answers,excl,lbTitles)=>{
+const hunch=normTxt(answers.hunch||'');
+const theme=THEME_LIST.find(t=>t.keywords.some(k=>hunch.includes(k)))||randomPick(THEME_LIST);
+const film1=answers.film1||'Film One', film2=answers.film2||'Film Two';
+const connection=`${film1} and ${film2} both circle back to the same idea: ${theme.name.toLowerCase()}. It's the kind of thread that's easy to miss on a first watch but hard to un-see once you notice it.`;
+const sharedDNA=[theme.name,"A central character forced to confront what they can't control",'An ending that reframes everything that came before'];
+let pool=FILM_DB.filter(f=>f.tone.includes(theme.tone)&&!excl.includes(f.title)&&!lbTitles.includes(f.title));
+if(!pool.length)pool=FILM_DB;
+const recPick=randomPick(pool);
+const recommended={...toFilmObj(recPick,[theme.name]),reason:`Shares that same ${theme.name.toLowerCase()} thread.`};
+return {film1,film2,connection,sharedDNA,recommended};
+};
+
+const genDouble=(answers,excl,lbTitles)=>{
+const a={genre:answers.genre,era:answers.era,runtime:answers.runtime};
+const films=pickFilms(a,2,excl,lbTitles);
+const style=normTxt(answers.style||'thematic pair');
+const theme=style.includes('opposite')?'Two films, opposite energies':style.includes('evolution')?'Watch the idea evolve':style.includes('same director')?'One voice, two films':style.includes('same world')?'Same world, different angle':'A thematic double bill';
+const whyTheyPair=`Both lean into a similar ${films[0]?films[0].genre:'genre'} feel, so watching them back to back should feel like a natural double feature rather than a jarring switch.`;
+const watchOrder=films.length===2?`Watch ${films[0].title} first, then ${films[1].title} — it eases you in before the tonal shift.`:'';
+return {theme,whyTheyPair,watchOrder,films};
+};
+
+const genActor=answers=>{
+const typed=normTxt(answers.actor||'');
+const key=Object.keys(ACTOR_DB).find(k=>k===typed)||Object.keys(ACTOR_DB).find(k=>typed&&(typed.includes(k)||k.includes(typed)));
+if(key){
+const a=ACTOR_DB[key];
+const films=a.films.map((f,i)=>({rank:i+1,title:f.title,year:f.year,role:f.role,genre:f.genre,director:f.director,description:`One of ${a.label}'s most acclaimed performances.`,rottenTomatoes:f.rt+'%',imdb:f.imdb.toFixed(1)+'/10',letterboxd:f.lb.toFixed(1)+'/5'}));
+const last=a.films[a.films.length-1];
+const underrated={title:last.title,year:last.year,role:last.role,reason:'A quieter performance that showcases range beyond the obvious picks.'};
+return {actor:a.label,careerArc:a.arc,films,underrated};
+}
+const used=new Set(); const picks=[];
+while(picks.length<5){const p=randomPick(FILM_DB); if(!used.has(p.title)){used.add(p.title);picks.push(p);}}
+const films=picks.map((f,i)=>({rank:i+1,title:f.title,year:f.year,role:'Not available offline',genre:f.genre,director:f.director,description:"This actor isn't in the offline library yet, so here's a well-loved film instead.",rottenTomatoes:f.rottenTomatoes,imdb:f.imdb,letterboxd:f.letterboxd}));
+return {actor:answers.actor||'This actor',careerArc:`We don't have ${answers.actor||'this actor'} in the offline library yet — here are five widely loved films to explore in the meantime.`,films,underrated:null};
+};
+
+const genSoundtrack=(answers,excl,lbTitles)=>{
+const sound=normTxt(answers.sound||'');
+let pool=FILM_DB.filter(f=>f.sound&&!excl.includes(f.title)&&!lbTitles.includes(f.title));
+if(!pool.length)pool=FILM_DB.filter(f=>!excl.includes(f.title));
+const scored=pool.map(f=>{let s=Math.random(); if(f.sound&&sound){ sound.split(/\s+/).forEach(w=>{ if(w.length>2&&f.sound.note.toLowerCase().includes(w))s+=5; }); } return{f,s};}).sort((a,b)=>b.s-a.s);
+const top=scored.slice(0,Math.max(6,3)).map(x=>x.f);
+for(let i=top.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[top[i],top[j]]=[top[j],top[i]];}
+const chosen=top.slice(0,3);
+const films=chosen.map(f=>({...toFilmObj(f),soundtrackNote:f.sound?f.sound.note:'A great score that suits the mood you described.',keyTracks:f.sound?f.sound.tracks:''}));
+return {vibe:answers.sound?`Films that sound like "${answers.sound}"`:'Films with a soundtrack worth hearing',films};
+};
+
+const genAutopsy=(answers,excl,lbTitles)=>{
+const film=answers.film||'the film';
+const wrong=normTxt(answers.wrong||'');
+const hoped=normTxt(answers.hoped||'');
+const DIAG={'story':`The story in ${film} likely didn't give you enough reason to care before asking you to follow it somewhere complicated.`,'acting':`If the performances didn't land, it probably pulled you out of the world at exactly the moments it needed you locked in.`,'slow':'Pacing issues usually come down to spending too long setting up and not enough time paying it off.','rushed':'Films that feel rushed are usually trying to cram too much plot into too little time.','sense':"When a film \"makes no sense,\" it's often because the internal logic wasn't set up clearly early on.",'boring':'If it dragged, the problem is usually pacing or a lack of clear stakes.','much':'Sometimes a film leans so hard into intensity that it forgets to earn it.','ending':"A disappointing ending is often a sign the film didn't know what it was building toward."};
+const diagKey=Object.keys(DIAG).find(k=>wrong.includes(k));
+const diagnosis=DIAG[diagKey]||`Something about ${film} just didn't come together for you — and that's a completely valid reaction.`;
+const whatYouWanted=`It sounds like you wanted ${hoped||'something that delivered on its premise'} — a fair ask, and there are films that do exactly that.`;
+const fixGenre=normTxt(answers.fixGenre||'');
+const gAnswers=(fixGenre&&!fixGenre.includes('same')&&!fixGenre.includes('surprise'))?{genre:answers.fixGenre}:{};
+const fixes=pickFilms(gAnswers,2,excl,lbTitles).map(f=>({...f,whyThisFilm:`Fixes exactly what ${film} got wrong${diagKey?' — especially around '+diagKey:''}.`}));
+return {film,diagnosis,whatYouWanted,fixes};
+};
+
+const genSwap=(answers,excl,lbTitles)=>{
+const film=answers.film||'the film';
+const love=normTxt(answers.love||'');
+const LOVE_TONE={'story':'dark','characters':'raw','world':'dreamy','soundtrack':'epic','visuals':'dreamy','humour':'funny','emotion':'emotional','mind-bending':'mind-bending'};
+const loveKey=Object.keys(LOVE_TONE).find(k=>love.includes(k));
+const originalTone=LOVE_TONE[loveKey]||'dark';
+const OPPOSITE_TONE={'dark':'light','light':'dark','raw':'dreamy','dreamy':'raw','epic':'raw','funny':'dark','emotional':'absurd','mind-bending':'heartwarming'};
+const oppositeTone=OPPOSITE_TONE[originalTone]||'light';
+const avoidGenre=normTxt(answers.avoidGenre||'');
+let pool=FILM_DB.filter(f=>f.tone.includes(oppositeTone)&&!excl.includes(f.title)&&!lbTitles.includes(f.title));
+if(avoidGenre)pool=pool.filter(f=>!f.gTags.some(g=>avoidGenre.includes(g)));
+if(!pool.length)pool=FILM_DB.filter(f=>!excl.includes(f.title));
+const pick=randomPick(pool.length?pool:FILM_DB);
+const opposite=toFilmObj(pick,[oppositeTone+' tone']);
+const original={title:film,analysis:`You're drawn to its ${answers.love||'central quality'} — that's usually exactly the part of ${film} that hits hardest.`};
+const whyOpposite=`Where ${film} leans ${originalTone}, ${pick.title} goes almost entirely ${oppositeTone} — same medium, completely different headspace.`;
+return {original,opposite,whyOpposite};
+};
+
+const genFamily=(answers,excl,lbTitles)=>{
+const into=normTxt(answers.into||'');
+const avoid=normTxt(answers.avoid||'');
+const INTO_GENRE={'superheroes':'superhero','magic':'fantasy','animals':'family','space':'sci-fi','comedy':'comedy','musical':'musical','sports':'sports'};
+const genreKey=Object.keys(INTO_GENRE).find(k=>into.includes(k));
+let pool=FILM_DB.filter(f=>f.kids&&!excl.includes(f.title)&&!lbTitles.includes(f.title));
+if(genreKey){const matched=pool.filter(f=>f.gTags.includes(INTO_GENRE[genreKey])); if(matched.length)pool=matched;}
+if((avoid.includes('scary')||avoid.includes('violence')||avoid.includes('sad'))){const safer=pool.filter(f=>!f.tone.includes('dark')&&!f.tone.includes('tense')); if(safer.length)pool=safer;}
+if(!pool.length)pool=FILM_DB.filter(f=>f.kids);
+for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+const chosen=pool.slice(0,3);
+const films=chosen.map(f=>({...toFilmObj(f),parentNote:`Rated ${f.ageRating} — ${f.tone.includes('dark')?'a couple of slightly tense moments, worth a quick pre-watch check.':'nothing that should worry most parents.'}`}));
+return {ages:answers.ages||'the whole family',films};
+};
+
+/* ===== LETTERBOXD UTILITIES ===== */
 const parseCSVLine=s=>{const r=[];let c='',q=false;for(let i=0;i<s.length;i++){if(s[i]==='"'){q=!q}else if(s[i]===','&&!q){r.push(c);c=''}else{c+=s[i]}}r.push(c);return r.map(x=>x.trim().replace(/^"|"$/g,''))};
 
 const parseLBCsv=text=>{
@@ -224,19 +679,6 @@ const zip=await JSZip.loadAsync(file);
 for(const name of['ratings.csv','diary.csv','watched.csv','reviews.csv']){
 const f=zip.file(name);if(f){const t=await f.async('text');const r=parseLBCsv(t);if(r.length)return r}}
 return[]};
-
-const callAI=async(key,prompt,maxTokens=2000)=>{
-const res=await fetch("https://api.anthropic.com/v1/messages",{
-method:"POST",
-headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})
-});
-if(!res.ok)throw new Error("API error: "+res.status);
-const data=await res.json();
-const text=data.content.filter(b=>b.type==="text").map(b=>b.text).join("");
-const clean=text.replace(/```json|```/g,"").trim();
-const m=clean.match(/\{[\s\S]*\}/);
-return JSON.parse(m?m[0]:clean)};
 
 const streamUrl=(service,title)=>{
 const t=encodeURIComponent(title);
@@ -273,13 +715,12 @@ return <button style={{...base,...(full?{width:'100%'}:{width:'auto'}),...(disab
 
 const Loader=()=>{
 const[mi,setMi]=useState(0);
-useEffect(()=>{const iv=setInterval(()=>setMi(i=>(i+1)%LOAD_MSGS.length),2500);return()=>clearInterval(iv)},[]);
+useEffect(()=>{const iv=setInterval(()=>setMi(i=>(i+1)%LOAD_MSGS.length),1400);return()=>clearInterval(iv)},[]);
 return<div style={{textAlign:'center',padding:'80px 20px',animation:'fi 0.3s ease'}}><div style={{fontSize:48,animation:'spin 2s linear infinite',display:'inline-block'}}>🎬</div><p style={{...sty.sub,marginTop:20,animation:'pulse 1.5s ease-in-out infinite'}}>{LOAD_MSGS[mi]}</p><div style={{height:4,background:'rgba(255,255,255,0.06)',borderRadius:4,marginTop:20,overflow:'hidden'}}><div style={{height:'100%',width:'60%',background:'linear-gradient(90deg,transparent,#e8a948,transparent)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/></div></div>};
 
 const StreamCheck=({sel,onToggle})=>{
 const allSel=sel.length===0;
 return<div><div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>{STREAM_NAMES.map(s=><button key={s} onClick={()=>onToggle(s)} style={{...sty.chip,background:sel.includes(s)?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:sel.includes(s)?'#e8a948':'rgba(255,255,255,0.1)',color:sel.includes(s)?'#e8a948':'#9b97b0'}}>{s}</button>)}</div><button onClick={()=>onToggle('ALL')} style={{...sty.chip,background:allSel?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:allSel?'#e8a948':'rgba(255,255,255,0.1)',color:allSel?'#e8a948':'#9b97b0'}}>All / Don't Mind</button></div>};
-
 
 /* ===== WIZARD COMPONENT ===== */
 const Wizard=({icon,title,steps,onDone,strSel,onStrToggle})=>{
@@ -399,15 +840,11 @@ style={{...sty.card,marginTop:20,padding:'40px 20px',cursor:'pointer',borderColo
 <Btn onClick={onSkip}>{lb.length>0?'Continue':'Skip'}</Btn></div>
 </div></Shell>};
 
-
 /* ===== MAIN APP COMPONENT ===== */
 const App=()=>{
-const[apiKey,setApiKey]=useState('');
-const[showKey,setShowKey]=useState(false);
 const[phase,setPhase]=useState('home');
 const[step,setStep]=useState(0);
 const[ans,setAns]=useState({});
-const[cIns,setCIns]=useState({});
 const[tAns,setTAns]=useState({});
 const[strSel,setStrSel]=useState([]);
 const[movies,setMovies]=useState(null);
@@ -419,7 +856,6 @@ const[dis,setDis]=useState([]);
 const[cmp,setCmp]=useState(new Set());
 const[h2h,setH2h]=useState(null);
 const[h2hData,setH2hData]=useState(null);
-const[expanded,setExpanded]=useState({});
 const[moreOpen,setMoreOpen]=useState(false);
 const[groupNames,setGroupNames]=useState(['','']);
 const[groupStep,setGroupStep]=useState(0);
@@ -436,56 +872,55 @@ const[selCustomText,setSelCustomText]=useState('');
 const[selShowCust,setSelShowCust]=useState(false);
 const[textInput,setTextInput]=useState('');
 
-const home=()=>{setPhase('home');setStep(0);setAns({});setCIns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setExpanded({});setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('')};
+const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('')};
 
-const filmJSON=`{"reason":"...","films":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2-3 sentences","whyThisFilm":"1 sentence referencing preferences","rottenTomatoes":"...%","imdb":".../10","letterboxd":".../5","ageRating":"...","streaming":"..."}]}`;
+const lbTitles=()=>lb.map(f=>f.title);
 
-const buildPickerPrompt=(a,count=3)=>{
-let p=`You are a film recommendation expert. Based on these preferences, recommend exactly ${count} films.\n\n`;
-Object.entries(a).forEach(([k,v])=>{if(v&&v!==''){p+=`${k}: ${typeof v==='object'?JSON.stringify(v):v}\n`}});
-if(lb.length>0){
-const watched=lb.slice(0,150).map(f=>f.title).join(', ');
-const top=lb.filter(f=>f.rating).sort((a,b)=>b.rating-a.rating).slice(0,20).map(f=>`${f.title} (${f.rating}★)`).join(', ');
-const recent=lb.slice(-15).map(f=>f.title).join(', ');
-p+=`\nWatched films (NEVER recommend any of these): ${watched}\nTop-rated: ${top}\nRecent: ${recent}\n`}
-if(dis.length>0)p+=`\nAlso exclude: ${dis.join(', ')}\n`;
-p+=`\nRules: Real films only, real data only. ${count} different films. whyThisFilm must reference specific preferences. Match era/runtime/language/age rating strictly. If age rating specified, only recommend that or lower. Use exact streaming service name.\n`;
-p+=`Reply ONLY JSON: ${filmJSON}`;
-return p};
-
-const fetchFilms=async(a,count=3)=>{
+const fetchFilms=(a,count=3)=>{
 setPhase('loading');setLastA(a);
-try{const r=await callAI(apiKey,buildPickerPrompt(a,count));setMovies(r);setPhase('results')}
-catch(e){setErr(e.message);setPhase('error')}};
+setTimeout(()=>{
+const films=pickFilms(a,count,dis,lbTitles());
+setMovies({reason:buildReason(a,films),films});
+setPhase('results');
+},600);
+};
 
-const replaceFn=async(idx)=>{
+const replaceFn=idx=>{
 if(rIdx>=0)return;
 setRIdx(idx);
 const film=movies.films[idx];
 const newDis=[...dis,film.title];setDis(newDis);
-try{
-const p=buildPickerPrompt({...lastA,excludeExtra:newDis.join(', ')},1).replace(`exactly 1`,`exactly 1 replacement`);
-const r=await callAI(apiKey,p);
-if(r.films&&r.films[0]){const nf=[...movies.films];nf[idx]=r.films[0];setMovies({...movies,films:nf})}
-}catch(e){setErr(e.message)}
-setRIdx(-1)};
+setTimeout(()=>{
+const excl=[...newDis,...movies.films.map(x=>x.title)];
+const rep=pickFilms(lastA||{},1,excl,lbTitles())[0];
+if(rep){const nf=[...movies.films];nf[idx]=rep;setMovies(m=>({...m,films:nf}));}
+setRIdx(-1);
+},500);
+};
 
-const secondOpinion=async(direction)=>{
+const secondOpinion=direction=>{
 setSoL(true);
-try{
-const p=buildPickerPrompt(lastA).replace('Based on these preferences',`Based on these preferences, but this time go ${direction}. Give completely different films from before`);
-const r=await callAI(apiKey,p);setMovies(r);setDis([]);setCmp(new Set())
-}catch(e){setErr(e.message)}
-setSoL(false)};
+setTimeout(()=>{
+let a={...lastA};
+if(direction==='More adventurous')a={...a,calibre:'Hidden Gem'};
+else if(direction==='Safer picks')a={...a,calibre:'Crowd Pleaser'};
+else if(direction==='More obscure')a={...a,calibre:'Underrated'};
+else if(direction==='More popular')a={...a,calibre:'Box Office Smash'};
+else if(direction==='Completely different'){a={...a,genre:'',tone:''};}
+const excl=[...dis,...(movies?.films||[]).map(f=>f.title)];
+const films=pickFilms(a,3,excl,lbTitles());
+setMovies({reason:buildReason(a,films),films});
+setDis(excl);setCmp(new Set());
+setSoL(false);
+},600);
+};
 
-const compareFilms=async()=>{
+const compareFilms=()=>{
 const indices=[...cmp];
 const fA=movies.films[indices[0]],fB=movies.films[indices[1]];
 setH2h({a:fA,b:fB});setH2hData(null);setPhase('h2h');
-try{
-const p=`Compare these two films:\nFilm A: ${fA.title} (${fA.year})\nFilm B: ${fB.title} (${fB.year})\n\nGive a verdict. Reply ONLY JSON: {"verdict":"2 sentences comparing them","winner":"Film title","winReason":"1 sentence"}`;
-const r=await callAI(apiKey,p);setH2hData(r)
-}catch(e){setErr(e.message);setPhase('error')}};
+setTimeout(()=>{setH2hData(localVerdict(fA,fB))},500);
+};
 
 const sharePicks=()=>{
 if(!movies||!movies.films)return;
@@ -533,7 +968,6 @@ return<Shell><Hdr title="Film Picker" onBack={()=>{setTextInput('');setStep(step
 {q.chips&&<div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:12}}>{q.chips.map(c=><button key={c} style={sty.chip} onClick={()=>setTextInput(t=>t?t+', '+c:c)}>{c}</button>)}</div>}
 <div style={{display:'flex',gap:8,marginTop:16}}><Btn primary onClick={()=>advance(textInput.trim())} disabled={!textInput.trim()}>Next</Btn><Btn onClick={skipQ}>Skip</Btn></div>
 </div></Shell>};
-
 
 /* ===== RESULTS SCREEN ===== */
 const renderResults=()=>{
@@ -585,26 +1019,46 @@ return<Shell><Hdr title="Head to Head" onBack={()=>{setPhase('results');setH2h(n
 </div></Shell>};
 
 /* ===== LIGHTNING PICK ===== */
-const doLightning=async()=>{
+const doLightning=()=>{
 setPhase('loading');setCurrentMode('lightning');
-try{const r=await callAI(apiKey,`You are a film expert. Recommend 1 random excellent film. Something surprising and genuinely great. Real films, real data only. Reply ONLY JSON: ${filmJSON.replace('"films":[{','\"films\":[{')}`);
-setMovies(r);setPhase('results')}catch(e){setErr(e.message);setPhase('error')}};
+setTimeout(()=>{
+const excl=dis, lbT=lbTitles();
+const pool=FILM_DB.filter(f=>!excl.includes(f.title)&&!lbT.includes(f.title)&&(f.cal.includes('critics fave')||f.cal.includes('oscar winner')||f.cal.includes('cult classic')));
+const pick=(pool.length?pool:FILM_DB)[Math.floor(Math.random()*(pool.length?pool.length:FILM_DB.length))];
+const film=toFilmObj(pick,['a genuinely great watch']);
+setMovies({reason:'One excellent film, no questions asked.',films:[film]});
+setPhase('results');
+},600);
+};
 
 /* ===== FILM ROULETTE ===== */
-const doRoulette=async()=>{
+const doRoulette=()=>{
 setRouletteSpinning(true);
 const deg=1800+Math.random()*720;setRouletteDeg(deg);
-setTimeout(async()=>{
+setTimeout(()=>{
 setRouletteSpinning(false);setPhase('loading');
-try{const r=await callAI(apiKey,`You are a film expert. The roulette wheel has been spun! Recommend 1 completely random film. Any genre, any era, any country. Make it a great film though. Real films, real data only. Reply ONLY JSON: ${filmJSON}`);
-setMovies(r);setPhase('results')}catch(e){setErr(e.message);setPhase('error')}
-},3000)};
+setTimeout(()=>{
+const pick=FILM_DB[Math.floor(Math.random()*FILM_DB.length)];
+const film=toFilmObj(pick,['the wheel has spoken']);
+setMovies({reason:'The wheel has spoken!',films:[film]});
+setPhase('results');
+},400);
+},3000);
+};
 
 /* ===== FILM CALENDAR ===== */
-const doCalendar=async()=>{
+const doCalendar=()=>{
 setPhase('loading');setCurrentMode('calendar');
-try{const r=await callAI(apiKey,`You are a film expert. Recommend 3 films for a weekend:\n1. Friday Night - something with energy and excitement\n2. Saturday Afternoon - relaxed and engaging\n3. Sunday Evening - cosy wind-down\n\nReal films, real data only. Reply ONLY JSON: {"reason":"1 sentence","films":[{film1_friday},{film2_saturday},{film3_sunday}]} where each film has: ${filmJSON.replace('{"reason":"...","films":[','').replace(']}','')} and also a "slot" field being "Friday Night", "Saturday Afternoon", or "Sunday Evening".`);
-setMovies(r);setCustomResults({type:'calendar'});setPhase('results')}catch(e){setErr(e.message);setPhase('error')}};
+setTimeout(()=>{
+const used=new Set();
+const pickSlot=slot=>{const candidates=FILM_DB.filter(f=>f.slot===slot&&!used.has(f.title));const f=(candidates.length?candidates:FILM_DB)[Math.floor(Math.random()*(candidates.length?candidates.length:FILM_DB.length))];used.add(f.title);return f;};
+const fri=pickSlot('energetic'),sat=pickSlot('relaxed'),sun=pickSlot('cosy');
+const films=[{...toFilmObj(fri),slot:'Friday Night'},{...toFilmObj(sat),slot:'Saturday Afternoon'},{...toFilmObj(sun),slot:'Sunday Evening'}];
+setMovies({reason:'A full weekend, sorted.',films});
+setCustomResults({type:'calendar'});
+setPhase('results');
+},600);
+};
 
 /* ===== THIS OR THAT ===== */
 const renderToT=()=>{
@@ -617,7 +1071,15 @@ return<Shell><Hdr title="This or That" onBack={home}/><ProgBar step={totStep+1} 
 {q.map((opt,i)=><button key={i} onClick={()=>{
 const na=[...totAnswers,opt];setTotAnswers(na);
 if(totStep<9)setTotStep(totStep+1);
-else{setPhase('loading');callAI(apiKey,`Based on these 10 binary film preferences, recommend 1 perfect "DNA match" film:\n${na.join('\n')}\n\nReal films, real data only. Reply ONLY JSON: ${filmJSON}`).then(r=>{setMovies(r);setPhase('results')}).catch(e=>{setErr(e.message);setPhase('error')})}
+else{
+setPhase('loading');
+setTimeout(()=>{
+const a=totToAnswers(na);
+const films=pickFilms(a,1,dis,lbTitles());
+setMovies({reason:'Built from your 10 rapid-fire calls.',films});
+setPhase('results');
+},600);
+}
 }} style={{...sty.card,cursor:'pointer',fontSize:18,padding:'20px',textAlign:'center',transition:'all 0.15s'}}
 onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{opt}</button>)}
 </div></div></Shell>};
@@ -646,8 +1108,15 @@ const total=validNames.length*GROUP_QS.length;
 
 if(personIdx>=validNames.length){
 setPhase('loading');
-const summary=Object.entries(groupAnswers).map(([k,v])=>`${k}: ${v}`).join('\n');
-callAI(apiKey,`A group of ${validNames.length} people (${validNames.join(', ')}) voted on what to watch.\n\nVotes:\n${summary}\n\nFind 3 films that satisfy the overlap of everyone's preferences. Real films, real data only. Reply ONLY JSON: ${filmJSON}`).then(r=>{setMovies(r);setPhase('results')}).catch(e=>{setErr(e.message);setPhase('error')});
+setTimeout(()=>{
+const cats={genre:{},tone:{},pace:{},era:{}};
+Object.entries(groupAnswers).forEach(([k,v])=>{const cat=k.split('_').pop();if(cats[cat])cats[cat][v]=(cats[cat][v]||0)+1;});
+const pickMode=obj=>{let best=null,bc=-1;Object.entries(obj).forEach(([k,c])=>{if(c>bc){bc=c;best=k;}});return best;};
+const a={genre:pickMode(cats.genre),tone:pickMode(cats.tone),pacing:pickMode(cats.pace),era:pickMode(cats.era)};
+const films=pickFilms(a,3,dis,lbTitles());
+setMovies({reason:`Picked for the whole group: ${validNames.join(', ')}.`,films});
+setPhase('results');
+},600);
 return<Shell><Loader/></Shell>}
 
 return<Shell><Hdr title="Group Pick" onBack={home}/><ProgBar step={groupStep+1} total={total}/>
@@ -661,32 +1130,33 @@ setGroupAnswers({...groupAnswers,[`${person}_${q.id}`]:o});setGroupStep(groupSte
 onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{o}</button>)}
 </div></div></Shell>};
 
-
 /* ===== WIZARD MODE HANDLER ===== */
-const handleWizardDone=async(mode,answers)=>{
+const handleWizardDone=(mode,answers)=>{
 setPhase('loading');setCurrentMode(mode);
-const prompts={
-quick:()=>{const a={...answers,streaming:strSel};return buildPickerPrompt(a)},
-party:()=>`You're a watch party planner. Plan a full evening around "${answers.film||'a great film'}".\nPeople: ${answers.people||'2'}, Vibe: ${answers.vibe||'fun'}, Dietary: ${answers.dietary||'none'}\n\nReply ONLY JSON: {"film":"${answers.film}","lighting":"description of ideal lighting setup","before":{"playlist":"5 song suggestions","activity":"pre-film activity"},"food":[{"item":"name","desc":"description"}],"drink":[{"item":"name","desc":"description"}],"after":{"discussion":["question1","question2","question3"],"trivia":["fact1","fact2"],"watchNext":{"title":"...","year":"...","reason":"why this follows well"}}}`,
-debrief:()=>`Deep dive analysis of "${answers.film||'the film'}".\nThought: ${answers.think||'mixed'}, Standout: ${answers.standout||'story'}, Spoilers: ${answers.spoilers||'no spoilers'}\n\nReply ONLY JSON: {"film":"${answers.film}","themes":["theme1","theme2","theme3"],"missed":["thing1","thing2"],"directorIntent":"paragraph about director vision","backstory":"interesting production facts","discussion":["question1","question2","question3"],"watchNextChain":[{"title":"...","year":"...","reason":"..."}]}`,
-battle:()=>`Film battle: "${answers.film1}" vs "${answers.film2}".\nCriteria: ${answers.criteria||'overall quality'}, Tone: ${answers.serious||'fun debate'}\n\nReply ONLY JSON: {"film1":{"title":"${answers.film1}","argument":"3-4 sentences making the case","strengths":["s1","s2","s3"]},"film2":{"title":"${answers.film2}","argument":"3-4 sentences making the case","strengths":["s1","s2","s3"]},"verdict":"2 sentences","winner":"film title","winReason":"1 sentence"}`,
-dna:()=>`What do "${answers.film1}" and "${answers.film2}" secretly share? Hunch: ${answers.hunch||'unknown'}. Mode: ${answers.mode||'surprise'}.\n\nReply ONLY JSON: {"film1":"${answers.film1}","film2":"${answers.film2}","connection":"2-3 sentence explanation of hidden connection","sharedDNA":["point1","point2","point3","point4"],"recommended":{"title":"...","year":"...","genre":"...","director":"...","description":"2 sentences","reason":"why it shares this DNA"}}`,
-double:()=>`Recommend a double bill. Style: ${answers.style||'thematic'}, Genre: ${answers.genre||'any'}, Era: ${answers.era||'any'}, Runtime: ${answers.runtime||'any'}.\n\nReal films, real data only. Reply ONLY JSON: {"theme":"pairing theme name","whyTheyPair":"2 sentences","watchOrder":"which to watch first and why","films":[{first film with title,year,genre,director,runtime,description,whyThisFilm,rottenTomatoes,imdb,letterboxd,ageRating,streaming},{second film same format}]}`,
-actor:()=>`Deep dive: ${answers.actor||'the actor'}. Love: ${answers.love||'everything'}, Era: ${answers.era||'full career'}, Depth: ${answers.depth||'medium'}.\n\nReply ONLY JSON: {"actor":"${answers.actor}","careerArc":"2-3 sentence career summary","films":[{"rank":1,"title":"...","year":"...","role":"character name","genre":"...","director":"...","description":"1-2 sentences","rottenTomatoes":"...","imdb":"...","letterboxd":"...","rating":"why this ranks here"}],"underrated":{"title":"...","year":"...","role":"...","reason":"why it deserves more attention"}}. Include exactly 5 ranked films.`,
-soundtrack:()=>`Find films with this music vibe: "${answers.sound||'great soundtrack'}". Genre: ${answers.genre||'any'}, Music era: ${answers.era||'any'}, Importance: ${answers.importance||'memorable'}.\n\nReal films, real data only. Reply ONLY JSON: {"vibe":"vibe title","films":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"...","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"...","soundtrackNote":"1 sentence about the music","keyTracks":"2-3 key tracks or composers"}]}. Include exactly 3 films.`,
-autopsy:()=>`Film autopsy: "${answers.film||'the film'}" was bad because: ${answers.wrong||'multiple issues'}. Hoped for: ${answers.hoped||'better'}. Fix genre: ${answers.fixGenre||'same'}.\n\nReply ONLY JSON: {"film":"${answers.film}","diagnosis":"2-3 sentences about what went wrong","whatYouWanted":"2 sentences about what the viewer was seeking","fixes":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"explains how it fixes the issues","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"..."}]}. Include exactly 2 fix films. Real films, real data only.`,
-swap:()=>`Mood swap: find the polar opposite of "${answers.film||'the film'}". Love about it: ${answers.love||'everything'}. How opposite: ${answers.opposite||'clear opposite'}. Avoid: ${answers.avoidGenre||'nothing'}.\n\nReply ONLY JSON: {"original":{"title":"${answers.film}","analysis":"2 sentences about what makes this film tick"},"opposite":{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"...","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"..."},"whyOpposite":"2 sentences explaining the contrast"}. Real films, real data only.`,
-family:()=>`Family film picks. Kids ages: ${answers.ages||'mixed'}. Into: ${answers.into||'everything'}. Avoid: ${answers.avoid||'nothing specific'}. Adults enjoy too: ${answers.adults||'yes'}.\n\nReal films, real data only. Reply ONLY JSON: {"ages":"${answers.ages}","films":[{"title":"...","year":"...","genre":"...","director":"...","runtime":"...","description":"2 sentences","whyThisFilm":"...","rottenTomatoes":"...","imdb":"...","letterboxd":"...","ageRating":"...","streaming":"...","parentNote":"1 sentence content note for parents"}]}. Include exactly 3 films.`
-};
-
+setTimeout(()=>{
 try{
-const promptFn=prompts[mode];
-if(!promptFn){setErr('Unknown mode');setPhase('error');return}
-const r=await callAI(apiKey,promptFn(),mode==='actor'?2500:2000);
-if(mode==='quick'||mode==='double'||mode==='soundtrack'||mode==='autopsy'||mode==='family'){
-setMovies(r.films?r:r);setCustomResults({type:mode,data:r});setPhase('results');
-}else{setCustomResults({type:mode,data:r});setPhase('results')}
-}catch(e){setErr(e.message);setPhase('error')}};
+const excl=dis, lbT=lbTitles();
+let data;
+if(mode==='quick'){
+const a={...answers,streaming:strSel};
+const films=pickFilms(a,3,excl,lbT);
+data={reason:buildReason(a,films),films};
+setMovies(data);setCustomResults({type:'quick',data});
+}else if(mode==='party'){ data=genParty(answers); setCustomResults({type:'party',data}); }
+else if(mode==='debrief'){ data=genDebrief(answers); setCustomResults({type:'debrief',data}); }
+else if(mode==='battle'){ data=genBattle(answers); setCustomResults({type:'battle',data}); }
+else if(mode==='dna'){ data=genDNA(answers,excl,lbT); setCustomResults({type:'dna',data}); }
+else if(mode==='double'){ data=genDouble(answers,excl,lbT); setCustomResults({type:'double',data}); }
+else if(mode==='actor'){ data=genActor(answers); setCustomResults({type:'actor',data}); }
+else if(mode==='soundtrack'){ data=genSoundtrack(answers,excl,lbT); setCustomResults({type:'soundtrack',data}); }
+else if(mode==='autopsy'){ data=genAutopsy(answers,excl,lbT); setCustomResults({type:'autopsy',data}); }
+else if(mode==='swap'){ data=genSwap(answers,excl,lbT); setCustomResults({type:'swap',data}); }
+else if(mode==='family'){ data=genFamily(answers,excl,lbT); setCustomResults({type:'family',data}); }
+else{ setErr('Unknown mode'); setPhase('error'); return; }
+setPhase('results');
+}catch(e){setErr(e.message);setPhase('error')}
+},600);
+};
 
 /* ===== CUSTOM RESULTS RENDERERS ===== */
 const renderCustomResults=()=>{
@@ -750,7 +1220,6 @@ return<Shell><Hdr title="Film DNA" onBack={home}/>
 {d.sharedDNA&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>Shared DNA</h3>{d.sharedDNA.map((p,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>🧬 {p}</p>)}</div>}
 {d.recommended&&<div><h3 style={{fontFamily:"'Playfair Display',serif",margin:'16px 0 8px'}}>You might also love...</h3><FC film={d.recommended} idx={0} compact/></div>}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
-
 
 if(type==='double'){
 const films=d.films||movies?.films||[];
@@ -823,7 +1292,6 @@ return<Shell><Hdr title="Family Film Picker" onBack={home}/>
 
 return renderResults()};
 
-
 /* ===== HOME SCREEN ===== */
 const renderHome=()=>(
 <Shell>
@@ -831,16 +1299,8 @@ const renderHome=()=>(
 <div style={{fontSize:64,marginBottom:16,animation:'glow 2s ease-in-out infinite',display:'inline-block',borderRadius:'50%'}}>🎬</div>
 <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,marginBottom:8}}>Film Picker</h1>
 <p style={sty.sub}>Find something to watch tonight</p>
+<p style={{...sty.tert,marginTop:8}}>✨ Offline mode — curated picks, no API key needed</p>
 
-{!apiKey.startsWith('sk-')?<div style={{marginTop:24,textAlign:'left'}}>
-<p style={{...sty.tert,marginBottom:8}}>Enter your Anthropic API key to get started</p>
-<input type={showKey?'text':'password'} style={sty.input} value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="sk-ant-..."/>
-<div style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}>
-<button onClick={()=>setShowKey(!showKey)} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:12}}>{showKey?'Hide':'Show'} key</button>
-</div>
-</div>
-
-:<>
 {lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'10px 16px',marginTop:16,display:'inline-flex',alignItems:'center',gap:8}}>
 <span style={{color:'#4ade80'}}>✅ {lb.length} Letterboxd films loaded</span></div>}
 
@@ -864,7 +1324,6 @@ onMouseOver={e=>e.currentTarget.style.borderColor=m.col} onMouseOut={e=>e.curren
 <div><div style={{fontWeight:600,fontSize:15}}>{m.title}</div><div style={sty.tert}>{m.desc}</div></div>
 </button>)}
 </div>}
-</>}
 </div></Shell>);
 
 /* ===== ROULETTE SCREEN ===== */
@@ -885,7 +1344,6 @@ const renderError=()=>(
 <div style={{fontSize:48,marginBottom:16}}>😵</div>
 <h2 style={{fontFamily:"'Playfair Display',serif",marginBottom:8}}>Something went wrong</h2>
 <p style={{...sty.sub,marginBottom:4}}>{err||'An unexpected error occurred'}</p>
-<p style={sty.tert}>Check your API key and try again</p>
 <div style={{display:'flex',gap:8,marginTop:24,justifyContent:'center'}}>
 <Btn primary onClick={()=>{setErr(null);if(lastA)fetchFilms(lastA);else home()}}>Try Again</Btn>
 <Btn onClick={home}>🏠 Home</Btn>
