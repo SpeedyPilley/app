@@ -817,7 +817,7 @@ return<div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ea
 </div></div>};
 
 /* ===== LETTERBOXD IMPORT COMPONENT ===== */
-const LBImport=({lb,onDone,onSkip})=>{
+const LBImport=({lb,onDone,onSkip,onBack})=>{
 const[dragging,setDragging]=useState(false);
 const[err,setErr]=useState(null);
 const[loading,setLoading]=useState(false);
@@ -838,7 +838,7 @@ setLoading(false)};
 const onDrop=e=>{e.preventDefault();setDragging(false);const f=e.dataTransfer.files[0];if(f)handleFile(f)};
 const onChange=e=>{const f=e.target.files[0];if(f)handleFile(f)};
 
-return<Shell><Hdr title="Import Letterboxd"/>
+return<Shell><Hdr title="Import Letterboxd" onBack={onBack}/>
 <div style={{textAlign:'center',padding:'40px 0',animation:'fu 0.4s ease'}}>
 <div style={{fontSize:48,marginBottom:16}}>📋</div>
 <h2 style={{fontFamily:"'Playfair Display',serif",marginBottom:8}}>Import Your Letterboxd</h2>
@@ -903,6 +903,7 @@ const[authPass,setAuthPass]=useState('');
 const[authName,setAuthName]=useState('');
 const[authErr,setAuthErr]=useState('');
 const[tonight,setTonight]=useState(()=>featuredPick());
+const[lbReturn,setLbReturn]=useState('home');
 
 const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('');setGenreSearch('')};
 
@@ -940,16 +941,32 @@ const account=accounts[currentUser]||null;
 const isLoggedIn=currentUser!==GUEST;
 const displayName=isLoggedIn?(account?.displayName||currentUser):'Guest';
 
+const emptyGuest=()=>({username:GUEST,displayName:'Guest',favourites:[],seen:[],strSel:[],lb:[]});
+// Merge the current in-memory (guest) data into a target account, de-duplicating.
+const claimGuestInto=acc=>{
+const mFav=[...(acc.favourites||[])];favourites.forEach(f=>{if(!mFav.some(x=>x.title===f.title&&x.year===f.year))mFav.push(f);});
+const mSeen=[...(acc.seen||[])];seen.forEach(f=>{if(!mSeen.some(x=>x.title===f.title))mSeen.push(f);});
+const mLb=[...(acc.lb||[])];lb.forEach(f=>{if(!mLb.some(x=>x.title===f.title))mLb.push(f);});
+const mStr=[...new Set([...(acc.strSel||[]),...strSel])];
+return {...acc,favourites:mFav,seen:mSeen,lb:mLb,strSel:mStr};
+};
+// Commit a target account + reset the guest slot in one atomic write.
+const commitUser=(u,acc)=>{
+setAccounts(prev=>{const next={...prev,[u]:acc,[GUEST]:emptyGuest()};try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
+setCurrentUser(u);persistSession(u);applyUserData(acc);
+};
+
 const doSignUp=()=>{
 const u=authUser.trim().toLowerCase();
 const name=authName.trim()||authUser.trim();
 if(u.length<3)return setAuthErr('Username must be at least 3 characters.');
 if(!/^[a-z0-9_]+$/.test(u))return setAuthErr('Username can only use letters, numbers and underscores.');
+if(u===GUEST)return setAuthErr('That username is reserved. Please choose another.');
 if(authPass.length<4)return setAuthErr('Password must be at least 4 characters.');
 if(accounts[u])return setAuthErr('That username is already taken on this device.');
+// New account claims the guest's current favourites/seen/etc, and the guest slot is cleared.
 const newAcc={username:u,displayName:name,passHash:hashPw(authPass),createdAt:Date.now(),favourites:[...favourites],seen:[...seen],strSel:[...strSel],lb:[...lb]};
-setAccounts(prev=>{const next={...prev,[u]:newAcc};try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
-setCurrentUser(u);persistSession(u);applyUserData(newAcc);
+commitUser(u,newAcc);
 setAuthErr('');setAuthUser('');setAuthPass('');setAuthName('');setPhase('account');
 };
 
@@ -957,21 +974,24 @@ const doLogIn=()=>{
 const u=authUser.trim().toLowerCase();
 const acc=accounts[u];
 if(!acc||acc.passHash!==hashPw(authPass))return setAuthErr('Wrong username or password.');
-setCurrentUser(u);persistSession(u);applyUserData(acc);
+// Carry any favourites the user added as a guest into their account (matches signup behaviour).
+const claimed=claimGuestInto(acc);
+commitUser(u,claimed);
 setAuthErr('');setAuthUser('');setAuthPass('');setAuthName('');setPhase('account');
 };
 
 const doLogOut=()=>{
-setCurrentUser(GUEST);persistSession(GUEST);
-applyUserData(accounts[GUEST]||{});
+const g=emptyGuest();
+setAccounts(prev=>{const next={...prev,[GUEST]:g};try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
+setCurrentUser(GUEST);persistSession(GUEST);applyUserData(g);
 setPhase('home');
 };
 
 const doDeleteAccount=()=>{
 if(currentUser===GUEST)return;
-const u=currentUser;
-setAccounts(prev=>{const next={...prev};delete next[u];try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
-setCurrentUser(GUEST);persistSession(GUEST);applyUserData(accounts[GUEST]||{});
+const u=currentUser;const g=emptyGuest();
+setAccounts(prev=>{const next={...prev};delete next[u];next[GUEST]=g;try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
+setCurrentUser(GUEST);persistSession(GUEST);applyUserData(g);
 setPhase('home');
 };
 
@@ -1417,7 +1437,7 @@ else if(id==='roulette')setPhase('roulette');
 else if(id==='calendar')doCalendar();
 else if(id==='tot'){setTotStep(0);setTotAnswers([]);setPhase('tot')}
 else if(id==='group'){setGroupNames(['','']);setPhase('group')}
-else if(id==='lb_standalone')setPhase('lb_standalone');
+else if(id==='lb_standalone'){setLbReturn('home');setPhase('lb_standalone');}
 else if(id==='surprise'){const pool=MODE_CARDS.filter(m=>!['lb_standalone','group'].includes(m.id));launchMode(pool[Math.floor(Math.random()*pool.length)].id);}
 else setPhase(id);
 };
@@ -1529,7 +1549,7 @@ return<Shell><Hdr title="Account" onBack={()=>setPhase('home')}/>
 
 <button onClick={()=>setPhase('favourites')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>❤️</span><span style={{flex:1,fontWeight:600}}>Your Favourites</span><span style={sty.tert}>{favourites.length} →</span></button>
 <button onClick={()=>setPhase('history')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>🕘</span><span style={{flex:1,fontWeight:600}}>Watch History</span><span style={sty.tert}>{seen.length} →</span></button>
-<button onClick={()=>setPhase('lb_standalone')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>📋</span><span style={{flex:1,fontWeight:600}}>Letterboxd Import</span><span style={sty.tert}>{lb.length} →</span></button>
+<button onClick={()=>{setLbReturn('account');setPhase('lb_standalone')}} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>📋</span><span style={{flex:1,fontWeight:600}}>Letterboxd Import</span><span style={sty.tert}>{lb.length} →</span></button>
 
 {isLoggedIn?<div style={{marginTop:16}}>
 <Btn full onClick={doLogOut}>Log out</Btn>
@@ -1613,7 +1633,7 @@ if(phase==='roulette')return renderRoulette();
 if(phase==='group')return renderGroupSetup();
 if(phase==='group_vote')return renderGroupVote();
 
-if(phase==='lb'||phase==='lb_standalone')return<LBImport lb={lb} onDone={films=>{setLb(films);if(phase==='lb'){setPhase('questions');setStep(0)}else setPhase('home')}} onSkip={()=>{if(phase==='lb'){setPhase('questions');setStep(0)}else setPhase('home')}}/>;
+if(phase==='lb'||phase==='lb_standalone')return<LBImport lb={lb} onBack={phase==='lb_standalone'?()=>setPhase(lbReturn):null} onDone={films=>{setLb(films);if(phase==='lb'){setPhase('questions');setStep(0)}else setPhase(lbReturn)}} onSkip={()=>{if(phase==='lb'){setPhase('questions');setStep(0)}else setPhase(lbReturn)}}/>;
 
 if(phase==='questions'){
 if(step<SEL_QS.length)return renderSelectQ();
