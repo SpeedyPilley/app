@@ -16,9 +16,10 @@ body{font-family:'Outfit',sans-serif;background:#0c0f1a;color:#f1f0f7;min-height
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
 a{color:#f0c06e;text-decoration:none}
-button{-webkit-tap-highlight-color:transparent}
+button{-webkit-tap-highlight-color:transparent;color:inherit;font-family:inherit}
 button:active{transform:scale(0.97)}
-input::placeholder,textarea::placeholder{color:#7d7994}
+input,textarea{color:#f1f0f7}
+input::placeholder,textarea::placeholder{color:#8b87a0}
 @keyframes fu{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fi{from{opacity:0}to{opacity:1}}
 @keyframes si{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
@@ -52,6 +53,12 @@ const STREAM_LINKS={
 };
 const STREAM_NAMES=['Netflix','Prime Video','Disney+','Apple TV+','BBC iPlayer','ITVX','Channel 4','Sky/Now TV','MUBI','Paramount+','BritBox','Shudder','Curzon','Cinema'];
 const POSTER_GRADS=[['#e8a948','#d35400'],['#6366f1','#a855f7'],['#22c55e','#14b8a6']];
+/* ===== ACCOUNTS: device-local storage keys + helpers (no server) ===== */
+const ACCOUNTS_KEY='filmpicker_accounts_v2';
+const SESSION_KEY='filmpicker_session_v2';
+const GUEST='__guest__';
+// Lightweight non-cryptographic hash (works everywhere incl. file://). Data is device-local only.
+const hashPw=str=>{str=String(str)+'fp_salt_9x';let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<str.length;i++){const ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(16);};
 const LOAD_MSGS=["Scanning the archives...","Checking the reels...","Finding hidden gems...","Cross-referencing the collection...","Digging through the vault...","Almost there..."];
 
 const MODE_CARDS=[
@@ -462,6 +469,13 @@ if(answers.genre)parts.push(stripEmoji(answers.genre));
 if(answers.tone||answers.vibe)parts.push(stripEmoji(answers.tone||answers.vibe));
 if(answers.who)parts.push(stripEmoji(answers.who));
 return parts.length?`Handpicked to match ${parts.join(', ')}.`:`Three great films handpicked for tonight.`;
+};
+
+// A single standout film for the home "Tonight's Pick" spotlight
+const featuredPick=()=>{
+const pool=FILM_DB.filter(f=>f.cal.includes('critics fave')||f.cal.includes('oscar winner')||f.cal.includes('crowd pleaser'));
+const src=pool.length?pool:FILM_DB;
+return toFilmObj(src[Math.floor(Math.random()*src.length)],['a standout worth your evening']);
 };
 
 const localVerdict=(fA,fB)=>{
@@ -877,44 +891,99 @@ const[selCustomText,setSelCustomText]=useState('');
 const[selShowCust,setSelShowCust]=useState(false);
 const[textInput,setTextInput]=useState('');
 const[genreSearch,setGenreSearch]=useState('');
-const[profileName,setProfileName]=useState('');
 const[favourites,setFavourites]=useState([]);
+const[seen,setSeen]=useState([]);
 const[savedToast,setSavedToast]=useState(false);
-const[profileLoaded,setProfileLoaded]=useState(false);
+const[authLoaded,setAuthLoaded]=useState(false);
+const[accounts,setAccounts]=useState({});
+const[currentUser,setCurrentUser]=useState(GUEST);
+const[authMode,setAuthMode]=useState('login');
+const[authUser,setAuthUser]=useState('');
+const[authPass,setAuthPass]=useState('');
+const[authName,setAuthName]=useState('');
+const[authErr,setAuthErr]=useState('');
+const[tonight,setTonight]=useState(()=>featuredPick());
 
 const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('');setGenreSearch('')};
 
 const lbTitles=()=>lb.map(f=>f.title);
 
-/* ===== LOCAL PROFILE (browser-only, no server, no login) ===== */
-const PROFILE_KEY='filmpicker_profile_v1';
-useEffect(()=>{
-try{
-const raw=localStorage.getItem(PROFILE_KEY);
-if(raw){
-const p=JSON.parse(raw);
-if(p.name)setProfileName(p.name);
-if(Array.isArray(p.favourites))setFavourites(p.favourites);
-if(Array.isArray(p.strSel))setStrSel(p.strSel);
-if(Array.isArray(p.lb))setLb(p.lb);
-}
-}catch(e){}
-setProfileLoaded(true);
-},[]);
+/* ===== ACCOUNTS (stored on this device — no server) ===== */
+const applyUserData=acc=>{
+setFavourites(Array.isArray(acc?.favourites)?acc.favourites:[]);
+setSeen(Array.isArray(acc?.seen)?acc.seen:[]);
+setStrSel(Array.isArray(acc?.strSel)?acc.strSel:[]);
+setLb(Array.isArray(acc?.lb)?acc.lb:[]);
+};
 
 useEffect(()=>{
-if(!profileLoaded)return;
-try{localStorage.setItem(PROFILE_KEY,JSON.stringify({name:profileName,favourites,strSel,lb}));}catch(e){}
-},[profileName,favourites,strSel,lb,profileLoaded]);
+let accs={},sess=GUEST;
+try{const ra=localStorage.getItem(ACCOUNTS_KEY);if(ra)accs=JSON.parse(ra)||{};}catch(e){}
+try{const rs=localStorage.getItem(SESSION_KEY);if(rs&&(rs===GUEST||accs[rs]))sess=rs;}catch(e){}
+if(!accs[GUEST])accs[GUEST]={username:GUEST,displayName:'Guest',favourites:[],seen:[],strSel:[],lb:[]};
+setAccounts(accs);setCurrentUser(sess);applyUserData(accs[sess]||accs[GUEST]);
+setAuthLoaded(true);
+},[]);
+
+// Persist the active user's data whenever it changes
+useEffect(()=>{
+if(!authLoaded)return;
+setAccounts(prev=>{
+const next={...prev,[currentUser]:{...(prev[currentUser]||{username:currentUser,displayName:currentUser===GUEST?'Guest':currentUser}),favourites,seen,strSel,lb}};
+try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}
+return next;
+});
+},[favourites,seen,strSel,lb,authLoaded]);
+
+const persistSession=u=>{try{localStorage.setItem(SESSION_KEY,u);}catch(e){}};
+const account=accounts[currentUser]||null;
+const isLoggedIn=currentUser!==GUEST;
+const displayName=isLoggedIn?(account?.displayName||currentUser):'Guest';
+
+const doSignUp=()=>{
+const u=authUser.trim().toLowerCase();
+const name=authName.trim()||authUser.trim();
+if(u.length<3)return setAuthErr('Username must be at least 3 characters.');
+if(!/^[a-z0-9_]+$/.test(u))return setAuthErr('Username can only use letters, numbers and underscores.');
+if(authPass.length<4)return setAuthErr('Password must be at least 4 characters.');
+if(accounts[u])return setAuthErr('That username is already taken on this device.');
+const newAcc={username:u,displayName:name,passHash:hashPw(authPass),createdAt:Date.now(),favourites:[...favourites],seen:[...seen],strSel:[...strSel],lb:[...lb]};
+setAccounts(prev=>{const next={...prev,[u]:newAcc};try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
+setCurrentUser(u);persistSession(u);applyUserData(newAcc);
+setAuthErr('');setAuthUser('');setAuthPass('');setAuthName('');setPhase('account');
+};
+
+const doLogIn=()=>{
+const u=authUser.trim().toLowerCase();
+const acc=accounts[u];
+if(!acc||acc.passHash!==hashPw(authPass))return setAuthErr('Wrong username or password.');
+setCurrentUser(u);persistSession(u);applyUserData(acc);
+setAuthErr('');setAuthUser('');setAuthPass('');setAuthName('');setPhase('account');
+};
+
+const doLogOut=()=>{
+setCurrentUser(GUEST);persistSession(GUEST);
+applyUserData(accounts[GUEST]||{});
+setPhase('home');
+};
+
+const doDeleteAccount=()=>{
+if(currentUser===GUEST)return;
+const u=currentUser;
+setAccounts(prev=>{const next={...prev};delete next[u];try{localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(next));}catch(e){}return next;});
+setCurrentUser(GUEST);persistSession(GUEST);applyUserData(accounts[GUEST]||{});
+setPhase('home');
+};
 
 const isFavourited=film=>favourites.some(f=>f.title===film.title&&f.year===film.year);
 const toggleFavourite=film=>{
 setFavourites(prev=>{
 if(prev.some(f=>f.title===film.title&&f.year===film.year))return prev.filter(f=>!(f.title===film.title&&f.year===film.year));
 setSavedToast(true);setTimeout(()=>setSavedToast(false),1800);
-return [...prev,film];
+return [...prev,{title:film.title,year:film.year,genre:film.genre,director:film.director,runtime:film.runtime,description:film.description,rottenTomatoes:film.rottenTomatoes,imdb:film.imdb,letterboxd:film.letterboxd,ageRating:film.ageRating,streaming:film.streaming}];
 });
 };
+const markSeen=film=>{setSeen(prev=>prev.some(f=>f.title===film.title)?prev:[...prev,{title:film.title,year:film.year}]);};
 
 const fetchFilms=(a,count=3)=>{
 setPhase('loading');setLastA(a);
@@ -929,6 +998,7 @@ const replaceFn=idx=>{
 if(rIdx>=0)return;
 setRIdx(idx);
 const film=movies.films[idx];
+markSeen(film);
 const newDis=[...dis,film.title];setDis(newDis);
 setTimeout(()=>{
 const excl=[...newDis,...movies.films.map(x=>x.title)];
@@ -1340,38 +1410,170 @@ return<Shell><Hdr title="Family Film Picker" onBack={home}/>
 return renderResults()};
 
 /* ===== HOME SCREEN ===== */
+const launchMode=id=>{
+setCurrentMode(id);
+if(id==='lightning')doLightning();
+else if(id==='roulette')setPhase('roulette');
+else if(id==='calendar')doCalendar();
+else if(id==='tot'){setTotStep(0);setTotAnswers([]);setPhase('tot')}
+else if(id==='group'){setGroupNames(['','']);setPhase('group')}
+else if(id==='lb_standalone')setPhase('lb_standalone');
+else if(id==='surprise'){const pool=MODE_CARDS.filter(m=>!['lb_standalone','group'].includes(m.id));launchMode(pool[Math.floor(Math.random()*pool.length)].id);}
+else setPhase(id);
+};
+
+const greeting=(()=>{const h=new Date().getHours();const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';return isLoggedIn?`${g}, ${displayName}`:g;})();
+
 const renderHome=()=>(
 <Shell>
-<button onClick={()=>setPhase('profile')} style={{position:'absolute',top:16,right:16,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:'50%',width:40,height:40,cursor:'pointer',fontSize:17,color:'#f1f0f7'}}>👤</button>
-<div style={{textAlign:'center',paddingTop:60,animation:'fu 0.5s ease'}}>
-<div style={{fontSize:64,marginBottom:16,animation:'glow 2s ease-in-out infinite',display:'inline-block',borderRadius:'50%'}}>🎬</div>
-<h1 style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,marginBottom:8}}>Film Picker</h1>
-<p style={sty.sub}>{profileName?`Welcome back, ${profileName}`:'Find something to watch tonight'}</p>
-<p style={{...sty.tert,marginTop:8}}>✨ Offline mode — curated picks, no API key needed</p>
+<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,animation:'fi 0.4s ease'}}>
+<div>
+<p style={{...sty.tert,fontSize:13}}>{greeting}</p>
+<h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700}}>Film Picker</h1>
+</div>
+<button onClick={()=>setPhase('account')} title="Account" style={{background:isLoggedIn?'linear-gradient(135deg,#e8a948,#f0c06e)':'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:'50%',width:44,height:44,cursor:'pointer',fontSize:16,fontWeight:700,color:isLoggedIn?'#0c0f1a':'#f1f0f7',flexShrink:0}}>{isLoggedIn?displayName.charAt(0).toUpperCase():'👤'}</button>
+</div>
 
-{lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'10px 16px',marginTop:16,display:'inline-flex',alignItems:'center',gap:8}}>
-<span style={{color:'#4ade80'}}>✅ {lb.length} Letterboxd films loaded</span></div>}
+{/* Tonight's Pick spotlight */}
+<div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ease',marginTop:8}}>
+<div style={{height:120,background:`linear-gradient(135deg,${POSTER_GRADS[0][0]},${POSTER_GRADS[0][1]})`,display:'flex',flexDirection:'column',justifyContent:'flex-end',padding:14,position:'relative'}}>
+<span style={{position:'absolute',top:10,left:12,background:'rgba(0,0,0,0.45)',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,letterSpacing:0.5,textTransform:'uppercase'}}>🌙 Tonight's Pick</span>
+<button onClick={()=>{setTonight(featuredPick())}} title="Shuffle" style={{position:'absolute',top:8,right:10,background:'rgba(0,0,0,0.45)',border:'none',borderRadius:'50%',width:30,height:30,cursor:'pointer',fontSize:14,color:'#fff'}}>🔄</button>
+<div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:'#fff',textShadow:'0 2px 12px rgba(0,0,0,0.4)'}}>{tonight.title}</div>
+</div>
+<div style={{padding:14}}>
+<div style={sty.sub}>{[tonight.year,tonight.genre,tonight.director].filter(Boolean).join(' · ')}</div>
+<p style={{...sty.sub,marginTop:8,lineHeight:1.5,fontSize:13}}>{tonight.description}</p>
+<div style={{display:'flex',gap:8,marginTop:12}}>
+<Btn primary onClick={()=>{setMovies({reason:"Tonight's Pick, chosen for you.",films:[tonight]});setCustomResults(null);setPhase('results')}} style={{flex:1}}>▶ See details</Btn>
+<button onClick={()=>toggleFavourite(tonight)} style={{...sty.btnS,width:'auto',padding:'12px 16px'}}>{isFavourited(tonight)?'❤️':'🤍'}</button>
+</div>
+</div>
+</div>
 
-<button onClick={()=>setPhase('lb')} style={{...sty.btnP,marginTop:24,padding:'18px 24px',fontSize:18,borderRadius:16,animation:'glow 2s ease-in-out infinite'}}>🎬 Pick a Film</button>
+<button onClick={()=>setPhase('lb')} style={{...sty.btnP,marginTop:14,padding:'18px 24px',fontSize:18,borderRadius:16}}>🎬 Pick a Film</button>
 
-<button onClick={()=>setMoreOpen(!moreOpen)} style={{...sty.btnS,marginTop:12}}>{moreOpen?'Hide options ↑':'Do something else ↓'}</button>
+{/* Quick actions */}
+<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:12}}>
+{[{id:'lightning',icon:'🎯',label:'Instant'},{id:'roulette',icon:'🎰',label:'Roulette'},{id:'surprise',icon:'🎲',label:'Surprise'}].map(q=>
+<button key={q.id} onClick={()=>launchMode(q.id)} style={{...sty.card,marginBottom:0,cursor:'pointer',textAlign:'center',padding:'14px 6px'}} onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
+<div style={{fontSize:24}}>{q.icon}</div><div style={{fontSize:12,marginTop:4,color:'#c7c3db'}}>{q.label}</div>
+</button>)}
+</div>
 
-{moreOpen&&<div style={{marginTop:16,animation:'fu 0.3s ease'}}>
-{MODE_CARDS.map(m=><button key={m.id} onClick={()=>{
-setCurrentMode(m.id);
-if(m.id==='lightning')doLightning();
-else if(m.id==='roulette')setPhase('roulette');
-else if(m.id==='calendar')doCalendar();
-else if(m.id==='tot'){setTotStep(0);setTotAnswers([]);setPhase('tot')}
-else if(m.id==='group'){setGroupNames(['','']);setPhase('group')}
-else if(m.id==='lb_standalone')setPhase('lb_standalone');
-else setPhase(m.id)
-}} style={{...sty.card,display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%',transition:'all 0.15s'}}
-onMouseOver={e=>e.currentTarget.style.borderColor=m.col} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>
+{/* Favourites preview */}
+{favourites.length>0&&<div style={{marginTop:16}}>
+<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+<h3 style={{fontFamily:"'Playfair Display',serif",fontSize:17}}>❤️ Your Favourites</h3>
+<button onClick={()=>setPhase('favourites')} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:13}}>See all ({favourites.length}) →</button>
+</div>
+<div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+{favourites.slice(-6).reverse().map((f,i)=><button key={i} onClick={()=>setPhase('favourites')} style={{...sty.card,marginBottom:0,minWidth:120,cursor:'pointer',textAlign:'left',padding:10}}>
+<div style={{height:56,borderRadius:8,background:`linear-gradient(135deg,${POSTER_GRADS[i%3][0]},${POSTER_GRADS[i%3][1]})`,marginBottom:6}}/>
+<div style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.title}</div>
+<div style={{...sty.tert,fontSize:11}}>{f.year}</div>
+</button>)}
+</div></div>}
+
+{lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'10px 16px',marginTop:16,display:'flex',alignItems:'center',gap:8}}>
+<span style={{color:'#4ade80',fontSize:14}}>✅ {lb.length} Letterboxd films loaded — we'll skip these</span></div>}
+
+<button onClick={()=>setMoreOpen(!moreOpen)} style={{...sty.btnS,marginTop:16}}>{moreOpen?'Hide discovery modes ↑':'More ways to discover ↓'}</button>
+
+{moreOpen&&<div style={{marginTop:12,animation:'fu 0.3s ease'}}>
+{MODE_CARDS.map(m=><button key={m.id} onClick={()=>launchMode(m.id)} style={{...sty.card,display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%',transition:'all 0.15s'}}
+onMouseOver={e=>e.currentTarget.style.borderColor=m.col} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
 <div style={{width:44,height:44,borderRadius:12,background:`${m.col}20`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{m.icon}</div>
 <div><div style={{fontWeight:600,fontSize:15}}>{m.title}</div><div style={sty.tert}>{m.desc}</div></div>
 </button>)}
 </div>}
+
+<p style={{...sty.tert,textAlign:'center',marginTop:20,marginBottom:12,fontSize:12}}>✨ Runs entirely on your device — no account or internet needed</p>
+</Shell>);
+
+/* ===== AUTH SCREEN (login / sign up) ===== */
+const renderAuth=()=>{
+const isSignup=authMode==='signup';
+return<Shell><Hdr title={isSignup?'Create Account':'Log In'} onBack={()=>{setAuthErr('');setPhase('home')}}/>
+<div style={{animation:'fu 0.4s ease',padding:'12px 0'}}>
+<div style={{textAlign:'center',fontSize:44,marginBottom:8}}>{isSignup?'✨':'👋'}</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,textAlign:'center',marginBottom:6}}>{isSignup?'Create your account':'Welcome back'}</h2>
+<p style={{...sty.sub,textAlign:'center',marginBottom:20}}>{isSignup?'Save favourites and keep your picks':'Log in to your saved account'}</p>
+
+{isSignup&&<input style={{...sty.input,marginBottom:10}} value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="Display name (optional)"/>}
+<input style={{...sty.input,marginBottom:10}} value={authUser} onChange={e=>setAuthUser(e.target.value)} placeholder="Username" autoCapitalize="none"/>
+<input type="password" style={{...sty.input,marginBottom:10}} value={authPass} onChange={e=>setAuthPass(e.target.value)} placeholder="Password" onKeyDown={e=>{if(e.key==='Enter'){isSignup?doSignUp():doLogIn()}}}/>
+{authErr&&<p style={{color:'#e85454',fontSize:14,marginBottom:10}}>⚠️ {authErr}</p>}
+
+<Btn primary full onClick={()=>isSignup?doSignUp():doLogIn()} style={{marginTop:4}}>{isSignup?'Create account':'Log in'}</Btn>
+<button onClick={()=>{setAuthErr('');setAuthMode(isSignup?'login':'signup')}} style={{...sty.sub,background:'none',border:'none',cursor:'pointer',display:'block',margin:'16px auto 0',fontSize:14}}>{isSignup?'Already have an account? Log in':"New here? Create an account"}</button>
+<button onClick={()=>{setAuthErr('');setPhase('home')}} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',display:'block',margin:'12px auto 0',fontSize:13}}>Continue as guest →</button>
+<p style={{...sty.tert,textAlign:'center',marginTop:24,fontSize:12,lineHeight:1.5}}>🔒 Your account is stored only on this device. There's no server — so it won't sync to other devices, but nothing you enter ever leaves your browser.</p>
+</div></Shell>};
+
+/* ===== ACCOUNT SCREEN ===== */
+const renderAccount=()=>{
+const memberSince=account?.createdAt?new Date(account.createdAt).toLocaleDateString('en-GB',{month:'long',year:'numeric'}):null;
+return<Shell><Hdr title="Account" onBack={()=>setPhase('home')}/>
+<div style={{animation:'fu 0.4s ease'}}>
+<div style={{textAlign:'center',padding:'16px 0'}}>
+<div style={{width:72,height:72,borderRadius:'50%',background:'linear-gradient(135deg,#e8a948,#f0c06e)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,fontWeight:700,color:'#0c0f1a',margin:'0 auto 12px'}}>{isLoggedIn?displayName.charAt(0).toUpperCase():'👤'}</div>
+<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24}}>{displayName}</h2>
+{isLoggedIn?<p style={sty.tert}>@{currentUser}{memberSince?` · joined ${memberSince}`:''}</p>:<p style={sty.tert}>Not logged in</p>}
+</div>
+
+<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+<div style={{...sty.card,marginBottom:0,textAlign:'center'}}><div style={{fontSize:26,fontWeight:700,color:'#e8a948'}}>{favourites.length}</div><div style={sty.tert}>Favourites</div></div>
+<div style={{...sty.card,marginBottom:0,textAlign:'center'}}><div style={{fontSize:26,fontWeight:700,color:'#4ade80'}}>{seen.length}</div><div style={sty.tert}>Marked seen</div></div>
+</div>
+
+<button onClick={()=>setPhase('favourites')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>❤️</span><span style={{flex:1,fontWeight:600}}>Your Favourites</span><span style={sty.tert}>{favourites.length} →</span></button>
+<button onClick={()=>setPhase('history')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>🕘</span><span style={{flex:1,fontWeight:600}}>Watch History</span><span style={sty.tert}>{seen.length} →</span></button>
+<button onClick={()=>setPhase('lb_standalone')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>📋</span><span style={{flex:1,fontWeight:600}}>Letterboxd Import</span><span style={sty.tert}>{lb.length} →</span></button>
+
+{isLoggedIn?<div style={{marginTop:16}}>
+<Btn full onClick={doLogOut}>Log out</Btn>
+<button onClick={doDeleteAccount} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',display:'block',margin:'16px auto 0',fontSize:13,color:'#e85454'}}>Delete this account</button>
+</div>:<div style={{marginTop:16}}>
+<Btn primary full onClick={()=>{setAuthMode('signup');setPhase('auth')}} style={{marginBottom:8}}>Create an account</Btn>
+<Btn full onClick={()=>{setAuthMode('login');setPhase('auth')}}>Log in</Btn>
+<p style={{...sty.tert,textAlign:'center',marginTop:16,fontSize:12}}>Your favourites are saved as a guest on this device. Create an account to keep them separate.</p>
+</div>}
+</div></Shell>};
+
+/* ===== FAVOURITES SCREEN ===== */
+const renderFavourites=()=>(
+<Shell><Hdr title="Your Favourites" onBack={()=>setPhase(isLoggedIn?'account':'home')}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{favourites.length===0?<div style={{textAlign:'center',padding:'60px 20px'}}>
+<div style={{fontSize:44,marginBottom:12}}>🤍</div>
+<h3 style={{fontFamily:"'Playfair Display',serif",marginBottom:8}}>No favourites yet</h3>
+<p style={sty.sub}>Tap the heart on any film to save it here.</p>
+<Btn primary onClick={()=>setPhase('home')} style={{marginTop:20}}>Find a film</Btn>
+</div>:<>
+<p style={{...sty.sub,marginBottom:12}}>{favourites.length} saved film{favourites.length!==1?'s':''}</p>
+{[...favourites].reverse().map((f,i)=><FC key={f.title+i} film={f} idx={i} favourited={true} onToggleFavourite={toggleFavourite}/>)}
+</>}
+<Btn onClick={()=>setPhase('home')} style={{marginTop:8,marginBottom:16}}>🏠 Home</Btn>
+</div></Shell>);
+
+/* ===== WATCH HISTORY SCREEN ===== */
+const renderHistory=()=>(
+<Shell><Hdr title="Watch History" onBack={()=>setPhase(isLoggedIn?'account':'home')}/>
+<div style={{animation:'fu 0.4s ease'}}>
+{seen.length===0?<div style={{textAlign:'center',padding:'60px 20px'}}>
+<div style={{fontSize:44,marginBottom:12}}>🕘</div>
+<h3 style={{fontFamily:"'Playfair Display',serif",marginBottom:8}}>Nothing here yet</h3>
+<p style={sty.sub}>Tap "Seen it" on a film and it'll be logged here — and skipped in future picks.</p>
+</div>:<>
+<p style={{...sty.sub,marginBottom:12}}>{seen.length} film{seen.length!==1?'s':''} marked as seen</p>
+{[...seen].reverse().map((f,i)=><div key={i} style={{...sty.card,display:'flex',alignItems:'center',gap:12}}>
+<div style={{width:40,height:40,borderRadius:8,background:`linear-gradient(135deg,${POSTER_GRADS[i%3][0]},${POSTER_GRADS[i%3][1]})`,flexShrink:0}}/>
+<div style={{flex:1}}><div style={{fontWeight:600}}>{f.title}</div><div style={sty.tert}>{f.year}</div></div>
+<button onClick={()=>setSeen(prev=>prev.filter(x=>x.title!==f.title))} style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:18}}>✕</button>
+</div>)}
+</>}
+<Btn onClick={()=>setPhase('home')} style={{marginTop:8,marginBottom:16}}>🏠 Home</Btn>
 </div></Shell>);
 
 /* ===== ROULETTE SCREEN ===== */
@@ -1386,35 +1588,6 @@ const renderRoulette=()=>(
 <Btn onClick={home} style={{marginTop:12,maxWidth:240,margin:'12px auto 0'}}>🏠 Home</Btn>
 </div></Shell>);
 
-/* ===== PROFILE SCREEN (local only — saved in this browser, no login) ===== */
-const renderProfile=()=>{
-return<Shell><Hdr title="My Profile" onBack={()=>setPhase('home')}/>
-<div style={{animation:'fu 0.4s ease',padding:'8px 0'}}>
-<div style={{textAlign:'center',marginBottom:20}}>
-<div style={{fontSize:48,marginBottom:8}}>👤</div>
-<p style={sty.tert}>Saved only in this browser — no account, no login, no syncing.</p>
-</div>
-<div style={sty.card}>
-<p style={{fontWeight:600,marginBottom:8}}>Your name</p>
-<input style={sty.input} value={profileName} onChange={e=>setProfileName(e.target.value)} placeholder="What should we call you?"/>
-</div>
-<div style={sty.card}>
-<p style={{fontWeight:600,marginBottom:8}}>❤️ Favourites ({favourites.length})</p>
-{favourites.length===0?<p style={sty.tert}>Tap the heart on any film card to save it here.</p>:
-favourites.map((f,i)=><div key={f.title+i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderTop:i>0?'1px solid rgba(255,255,255,0.06)':'none'}}>
-<div><div style={{fontWeight:600,fontSize:14}}>{f.title}</div><div style={sty.tert}>{f.year} · {f.genre}</div></div>
-<button onClick={()=>toggleFavourite(f)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#e85454'}}>✕</button>
-</div>)}
-</div>
-<div style={sty.card}>
-<p style={{fontWeight:600,marginBottom:8}}>📋 Letterboxd data</p>
-<p style={sty.tert}>{lb.length>0?`${lb.length} films imported`:'No Letterboxd data imported yet'}</p>
-{lb.length>0&&<button onClick={()=>setLb([])} style={{...sty.chip,marginTop:8,color:'#e85454',borderColor:'rgba(232,84,84,0.2)'}}>Clear Letterboxd data</button>}
-</div>
-<Btn onClick={()=>{if(confirm('Clear your name, favourites and Letterboxd data from this browser?')){setProfileName('');setFavourites([]);setLb([]);setStrSel([]);}}} style={{marginTop:8,color:'#e85454',borderColor:'rgba(232,84,84,0.3)'}}>🗑️ Clear all saved data</Btn>
-<Btn primary onClick={()=>setPhase('home')} style={{marginTop:12}}>Done</Btn>
-</div></Shell>};
-
 /* ===== ERROR SCREEN ===== */
 const renderError=()=>(
 <Shell><div style={{textAlign:'center',padding:'80px 20px',animation:'fu 0.4s ease'}}>
@@ -1428,7 +1601,10 @@ const renderError=()=>(
 
 /* ===== PHASE ROUTER ===== */
 if(phase==='home')return renderHome();
-if(phase==='profile')return renderProfile();
+if(phase==='auth')return renderAuth();
+if(phase==='account')return renderAccount();
+if(phase==='favourites')return renderFavourites();
+if(phase==='history')return renderHistory();
 if(phase==='error')return renderError();
 if(phase==='loading')return<Shell><Loader/></Shell>;
 if(phase==='h2h')return renderH2H();
