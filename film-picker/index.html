@@ -566,125 +566,92 @@ const src=pool.length?pool:FILM_DB;
 return toFilmObj(src[Math.floor(Math.random()*src.length)],['a standout worth your evening']);
 };
 
-/* ===== TMDB WEB LAYER — unlimited films from the web (free API key) ===== */
-const TMDB_IMG='https://image.tmdb.org/t/p/w500';
-const TMDB_GENRE={action:28,comedy:35,drama:18,thriller:53,horror:27,'sci-fi':878,romance:10749,fantasy:14,animation:16,documentary:99,crime:80,mystery:9648,war:10752,western:37,musical:10402,superhero:28,historical:36,biography:18,sports:18,family:10751,heist:80,disaster:28,noir:80,psychological:53,'coming-of-age':18,satire:35,courtroom:18,'road movie':18,dystopian:878,spy:53,revenge:28,'rom-com':10749,'dark comedy':35,zombie:27,mockumentary:35};
-const TMDB_LANG={french:'fr',korean:'ko',japanese:'ja',spanish:'es',italian:'it',german:'de',scandinavian:'sv',indian:'hi'};
-const TMDB_PROVIDER={'Netflix':'Netflix','Amazon Prime Video':'Prime Video','Amazon Video':'Prime Video','Disney Plus':'Disney+','Apple TV Plus':'Apple TV+','Apple TV':'Apple TV+','BBC iPlayer':'BBC iPlayer','ITVX':'ITVX','ITV':'ITVX','Channel 4':'Channel 4','All 4':'Channel 4','Now TV':'Now TV','NOW':'Now TV','MUBI':'MUBI','Paramount Plus':'Paramount+','BritBox':'BritBox','Shudder':'Shudder','Curzon':'Curzon'};
+/* ===== WEB FILM LAYER — Apple iTunes catalogue (keyless, JSONP, no setup) ===== */
+let itqN=0;
+const itunesQuery=params=>new Promise(resolve=>{
+if(typeof document==='undefined')return resolve([]);
+const cb='itq_'+(++itqN);
+let done=false;
+const cleanup=()=>{try{delete window[cb];}catch(e){}const el=document.getElementById(cb);if(el)el.remove();};
+const finish=v=>{if(done)return;done=true;cleanup();resolve(v);};
+window[cb]=data=>finish((data&&data.results)||[]);
+try{
+const s=document.createElement('script');s.id=cb;
+s.src='https://itunes.apple.com/search?'+params+'&callback='+cb;
+s.onerror=()=>finish([]);document.head.appendChild(s);
+}catch(e){finish([]);}
+setTimeout(()=>finish([]),4000);
+});
 
-const tmdbGet=async(key,path,params={})=>{
-const u=new URL('https://api.themoviedb.org/3'+path);
-u.searchParams.set('api_key',key);
-Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')u.searchParams.set(k,v);});
-const r=await fetch(u.toString());
-if(!r.ok)throw new Error('TMDB '+r.status);
-return r.json();
-};
-
-const tmdbCert=det=>{try{const rd=(det.release_dates&&det.release_dates.results)||[];const gb=rd.find(x=>x.iso_3166_1==='GB')||rd.find(x=>x.iso_3166_1==='US');if(!gb)return '';const c=gb.release_dates.map(r=>r.certification).find(x=>x);return c||'';}catch(e){return '';}};
-const tmdbProvider=det=>{try{const res=det['watch/providers']&&det['watch/providers'].results;const gb=res&&(res.GB||res.US);const list=gb&&(gb.flatrate||gb.free||gb.ads);const name=list&&list[0]&&list[0].provider_name;return name?(TMDB_PROVIDER[name]||name):'';}catch(e){return '';}};
-const tmdbDirector=det=>{try{const c=det.credits&&det.credits.crew;const d=c&&c.find(x=>x.job==='Director');return d?d.name:'';}catch(e){return '';}};
-
-const tmdbToFilm=(m,det)=>{
-const year=String((m.release_date||det.release_date||'')).slice(0,4);
-const genres=(det.genres||[]).map(g=>g.name).slice(0,2).join('/');
-const va=m.vote_average||det.vote_average||0;
+const itunesToFilm=r=>{
+const mins=r.trackTimeMillis?Math.round(r.trackTimeMillis/60000):0;
 return {
-title:m.title||det.title,year,genre:genres,director:tmdbDirector(det),
-runtime:det.runtime?formatRuntime(det.runtime):'',
-description:m.overview||det.overview||'',
-whyThisFilm:'',
-rottenTomatoes:'',imdb:va?va.toFixed(1)+'/10':'',letterboxd:'',
-ageRating:tmdbCert(det),streaming:tmdbProvider(det),
-posterUrl:m.poster_path?TMDB_IMG+m.poster_path:(det.poster_path?TMDB_IMG+det.poster_path:null),
-tmdbId:m.id||det.id,mins:det.runtime||0
+title:r.trackName||'',year:String(r.releaseDate||'').slice(0,4),
+genre:r.primaryGenreName||'',director:r.artistName||'',
+runtime:mins?formatRuntime(mins):'',
+description:r.longDescription||r.shortDescription||'',
+whyThisFilm:'',rottenTomatoes:'',imdb:'',letterboxd:'',
+ageRating:r.contentAdvisoryRating||'',streaming:'',
+posterUrl:r.artworkUrl100?r.artworkUrl100.replace('100x100bb','600x600bb'):null,
+mins
 };
 };
 
-const tmdbEnrich=async(key,m)=>{
-try{const det=await tmdbGet(key,'/movie/'+m.id,{append_to_response:'credits,watch/providers,release_dates'});return tmdbToFilm(m,det);}
-catch(e){return tmdbToFilm(m,m);}
+const RANDOM_TERMS=['drama','thriller','comedy','adventure','mystery','romance','classic','award winning','sci-fi','action','crime','indie'];
+// Build an iTunes search term from the app's answers
+const itunesTerm=answers=>{
+const parts=[];
+if(answers.genre){const g=stripEmoji(answers.genre).trim();if(g&&!/anything|don't|any/i.test(g))parts.push(g);}
+if(answers.actors){const a=String(answers.actors).split(',')[0].trim();if(a)parts.push(a);}
+if(answers.vibeFilms){const v=String(answers.vibeFilms).split(',')[0].trim();if(v&&!parts.length)parts.push(v);}
+if(!parts.length){const t=stripEmoji(answers.tone||answers.vibe||'').trim();if(t&&!/don't|any/i.test(t))parts.push(t.split(' ')[0]);}
+if(!parts.length)parts.push(RANDOM_TERMS[Math.floor(Math.random()*RANDOM_TERMS.length)]);
+return parts.join(' ');
 };
 
-// Build a TMDB /discover query from the app's answer object
-const tmdbDiscoverParams=answers=>{
-const YEAR=new Date().getFullYear();
-const p={include_adult:false,include_video:false,language:'en-GB',region:'GB','vote_count.gte':40,sort_by:'popularity.desc'};
-const gv=normTxt(answers.genre||'');
-const genreId=Object.keys(TMDB_GENRE).find(k=>gv.includes(k));
-if(genreId)p.with_genres=TMDB_GENRE[genreId];
-const era=normTxt(answers.era||'');
-const setYears=(a,b)=>{p['primary_release_date.gte']=a+'-01-01';p['primary_release_date.lte']=b+'-12-31';};
-if(era.includes('brand new'))setYears(YEAR-2,YEAR);
-else if(era.includes('recent'))setYears(YEAR-5,YEAR);
-else if(era.includes('2010'))setYears(2010,2019);
-else if(era.includes('2000'))setYears(2000,2009);
-else if(era.includes('90'))setYears(1990,1999);
-else if(era.includes('80'))setYears(1980,1989);
-else if(era.includes('70')||era.includes('earlier'))p['primary_release_date.lte']='1979-12-31';
-const cty=normTxt(answers.country||'');
-const langK=Object.keys(TMDB_LANG).find(k=>cty.includes(k));
-if(langK)p.with_original_language=TMDB_LANG[langK];
-else if(cty.includes('british'))p.with_origin_country='GB';
-else if(cty.includes('hollywood')||cty.includes('english only'))p.with_original_language='en';
-const rt=normTxt(answers.runtime||'');
-if(rt.includes('quick')||rt.includes('under 90'))p['with_runtime.lte']=90;
-else if(rt.includes('standard'))p['with_runtime.gte']=90,p['with_runtime.lte']=120;
-else if(rt.includes('long'))p['with_runtime.gte']=120,p['with_runtime.lte']=150;
-else if(rt.includes('epic'))p['with_runtime.gte']=150;
-const age=normTxt(answers.age||'');
-if(!age.includes("don't")&&age){p.certification_country='GB';p['certification.lte']=stripEmoji(answers.age).trim();}
-const cal=normTxt(answers.calibre||'');
-const adv=normTxt(answers.adventure||'');
-if(cal.includes('hidden gem')||cal.includes('underrated')||adv.includes('wildcard')||adv.includes('obscure')){p['vote_count.gte']=30;p.sort_by='vote_average.desc';p['vote_average.gte']=6.5;}
-else if(cal.includes('oscar')||cal.includes('critics')||adv.includes('safe')){p['vote_count.gte']=300;p.sort_by='vote_average.desc';p['vote_average.gte']=7;}
-else if(cal.includes('box office')||cal.includes('crowd')){p.sort_by='revenue.desc';p['vote_count.gte']=200;}
-return p;
-};
-
-const tmdbDiscover=async(key,answers,count,excl=[],lbT=[])=>{
-const p=tmdbDiscoverParams(answers);
-p.page=1+Math.floor(Math.random()*4);
-let data=await tmdbGet(key,'/discover/movie',p);
-let results=(data.results||[]).filter(m=>m.overview);
-if(results.length<count&&p.page>1){data=await tmdbGet(key,'/discover/movie',{...p,page:1});results=(data.results||[]).filter(m=>m.overview);}
+const itunesDiscover=async(answers,count,excl=[],lbT=[])=>{
+const term=itunesTerm(answers);
+let results=await itunesQuery('media=movie&entity=movie&limit=120&term='+encodeURIComponent(term));
+results=results.filter(r=>r.trackName&&(r.longDescription||r.shortDescription)&&r.artworkUrl100);
+// era filter
+const era=normTxt(answers.era||'');const YEAR=new Date().getFullYear();
+const yearOf=r=>parseInt(String(r.releaseDate||'').slice(0,4))||0;
+if(era.includes('brand new'))results=results.filter(r=>yearOf(r)>=YEAR-2);
+else if(era.includes('recent'))results=results.filter(r=>yearOf(r)>=YEAR-5);
+else if(era.includes('2010'))results=results.filter(r=>{const y=yearOf(r);return y>=2010&&y<=2019;});
+else if(era.includes('2000'))results=results.filter(r=>{const y=yearOf(r);return y>=2000&&y<=2009;});
+else if(era.includes('90'))results=results.filter(r=>{const y=yearOf(r);return y>=1990&&y<=1999;});
+else if(era.includes('80'))results=results.filter(r=>{const y=yearOf(r);return y>=1980&&y<=1989;});
+// age filter (family-friendly)
+const age=normTxt(answers.age||'');const who=normTxt(answers.who||'');
+if(age==='u'||age==='pg'||who.includes('family')||who.includes('kids'))results=results.filter(r=>/^(G|PG|U|PG-13|12|TV-G|TV-PG|TV-Y)/i.test(r.contentAdvisoryRating||'')|| !r.contentAdvisoryRating);
 const banned=new Set([...excl,...lbT].map(s=>String(s).toLowerCase()));
-results=results.filter(m=>!banned.has(String(m.title||'').toLowerCase()));
+const seen=new Set();
+results=results.filter(r=>{const t=r.trackName.toLowerCase();if(banned.has(t)||seen.has(t))return false;seen.add(t);return true;});
 for(let i=results.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[results[i],results[j]]=[results[j],results[i]];}
-const chosen=results.slice(0,count);
-const films=await Promise.all(chosen.map(m=>tmdbEnrich(key,m)));
-return films.filter(f=>f&&f.title);
+return results.slice(0,count).map(itunesToFilm);
 };
 
-// Look up a single real film by title (for type-a-film modes)
-const tmdbSearchFilm=async(key,title)=>{
-const data=await tmdbGet(key,'/search/movie',{query:title,language:'en-GB',include_adult:false});
-const m=(data.results||[])[0];
-if(!m)return null;
-return tmdbEnrich(key,m);
-};
-
-// One acclaimed random film (Lightning / Roulette / Tonight)
-const tmdbRandomGreat=async(key,excl=[],lbT=[])=>{
-const p={include_adult:false,language:'en-GB',region:'GB',sort_by:'vote_average.desc','vote_count.gte':800,'vote_average.gte':7.5,page:1+Math.floor(Math.random()*15)};
-const data=await tmdbGet(key,'/discover/movie',p);
+const itunesRandomGreat=async(excl=[],lbT=[])=>{
+const term=RANDOM_TERMS[Math.floor(Math.random()*RANDOM_TERMS.length)];
+let results=await itunesQuery('media=movie&entity=movie&limit=100&term='+encodeURIComponent(term));
+results=results.filter(r=>r.trackName&&(r.longDescription||r.shortDescription)&&r.artworkUrl100);
 const banned=new Set([...excl,...lbT].map(s=>String(s).toLowerCase()));
-const results=(data.results||[]).filter(m=>m.overview&&!banned.has(String(m.title||'').toLowerCase()));
+results=results.filter(r=>!banned.has(r.trackName.toLowerCase()));
 if(!results.length)return null;
-return tmdbEnrich(key,results[Math.floor(Math.random()*results.length)]);
+return itunesToFilm(results[Math.floor(Math.random()*results.length)]);
 };
 
-// Actor deep dive from the web (unlimited actors)
-const tmdbActor=async(key,name)=>{
-const ps=await tmdbGet(key,'/search/person',{query:name,language:'en-GB'});
-const person=(ps.results||[])[0];
-if(!person)return null;
-const cr=await tmdbGet(key,'/person/'+person.id,{append_to_response:'movie_credits'});
-const acting=((cr.movie_credits&&cr.movie_credits.cast)||[]).filter(m=>m.release_date&&m.vote_count>100&&m.poster_path);
-acting.sort((a,b)=>(b.vote_average*Math.log10(b.vote_count+1))-(a.vote_average*Math.log10(a.vote_count+1)));
-const top=acting.slice(0,5).map((m,i)=>({rank:i+1,title:m.title,year:String(m.release_date).slice(0,4),role:m.character||'',genre:'',director:'',description:m.overview||'',rottenTomatoes:'',imdb:(m.vote_average||0).toFixed(1)+'/10',letterboxd:'',posterUrl:m.poster_path?TMDB_IMG+m.poster_path:null}));
-const under=acting.slice(5,20).sort((a,b)=>b.vote_average-a.vote_average)[0];
-return {actor:cr.name||name,careerArc:(cr.biography||'').split('. ').slice(0,2).join('. ')||`A prolific screen career spanning ${acting.length}+ notable films.`,films:top,underrated:under?{title:under.title,year:String(under.release_date).slice(0,4),role:under.character||'',reason:'A lesser-seen role worth seeking out.'}:null};
+// Best-effort actor lookup from iTunes (falls back to the offline list when thin)
+const itunesActor=async name=>{
+if(!name)return null;
+let results=await itunesQuery('media=movie&entity=movie&limit=60&term='+encodeURIComponent(name));
+results=results.filter(r=>r.trackName&&(r.longDescription||r.shortDescription)&&r.artworkUrl100);
+const seen=new Set();results=results.filter(r=>{const t=r.trackName.toLowerCase();if(seen.has(t))return false;seen.add(t);return true;});
+if(results.length<3)return null;
+results.sort((a,b)=>String(b.releaseDate||'').localeCompare(String(a.releaseDate||'')));
+const top=results.slice(0,5).map((r,i)=>{const f=itunesToFilm(r);return {rank:i+1,title:f.title,year:f.year,role:'',genre:f.genre,director:f.director,description:f.description,rottenTomatoes:'',imdb:'',letterboxd:'',posterUrl:f.posterUrl};});
+return {actor:name,careerArc:`A selection of ${name}'s films, pulled live from the web.`,films:top,underrated:null};
 };
 
 const localVerdict=(fA,fB)=>{
@@ -1118,12 +1085,8 @@ const[authErr,setAuthErr]=useState('');
 const[tonight,setTonight]=useState(()=>featuredPick());
 const[tonightPoster,setTonightPoster]=useState(null);
 const[lbReturn,setLbReturn]=useState('home');
-const[tmdbKey,setTmdbKey]=useState('');
-const[keyInput,setKeyInput]=useState('');
-const[keyStatus,setKeyStatus]=useState('');
 useEffect(()=>{let ok=true;if(tonight&&tonight.posterUrl){setTonightPoster(tonight.posterUrl);return;}setTonightPoster(null);if(tonight&&tonight.title)fetchPoster(tonight.title,tonight.year).then(u=>{if(ok)setTonightPoster(u)});return()=>{ok=false}},[tonight&&tonight.title,tonight&&tonight.posterUrl]);
-const refreshTonight=async()=>{if(tmdbKey){try{const f=await tmdbRandomGreat(tmdbKey,[],[]);if(f){setTonight(f);return;}}catch(e){}}setTonight(featuredPick());};
-useEffect(()=>{if(tmdbKey){refreshTonight();}},[tmdbKey]);
+const refreshTonight=async()=>{try{const f=await itunesRandomGreat([],[]);if(f){setTonight(f);return;}}catch(e){}setTonight(featuredPick());};
 
 const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('');setGenreSearch('')};
 
@@ -1143,22 +1106,8 @@ try{const ra=localStorage.getItem(ACCOUNTS_KEY);if(ra)accs=JSON.parse(ra)||{};}c
 try{const rs=localStorage.getItem(SESSION_KEY);if(rs&&(rs===GUEST||accs[rs]))sess=rs;}catch(e){}
 if(!accs[GUEST])accs[GUEST]={username:GUEST,displayName:'Guest',favourites:[],seen:[],strSel:[],lb:[]};
 setAccounts(accs);setCurrentUser(sess);applyUserData(accs[sess]||accs[GUEST]);
-try{const k=localStorage.getItem('filmpicker_tmdb_key');if(k){setTmdbKey(k);setKeyInput(k);}}catch(e){}
 setAuthLoaded(true);
 },[]);
-
-const saveTmdbKey=async()=>{
-const k=keyInput.trim();
-if(!k)return setKeyStatus('Please paste your key first.');
-setKeyStatus('Checking…');
-try{
-const r=await fetch('https://api.themoviedb.org/3/configuration?api_key='+encodeURIComponent(k));
-if(!r.ok)throw new Error(r.status===401?'That key was rejected — double-check you copied the full API Key (v3 auth).':'Could not verify (HTTP '+r.status+').');
-setTmdbKey(k);try{localStorage.setItem('filmpicker_tmdb_key',k);}catch(e){}
-setKeyStatus('✅ Connected! The app now pulls films from the web.');
-}catch(e){setKeyStatus('⚠️ '+(e.message||'Could not reach TMDB. Check your connection and the key.'));}
-};
-const clearTmdbKey=()=>{setTmdbKey('');setKeyInput('');setKeyStatus('');try{localStorage.removeItem('filmpicker_tmdb_key');}catch(e){}};
 
 // Persist the active user's data whenever it changes
 useEffect(()=>{
@@ -1239,10 +1188,12 @@ return [...prev,{title:film.title,year:film.year,genre:film.genre,director:film.
 };
 const markSeen=film=>{setSeen(prev=>prev.some(f=>f.title===film.title)?prev:[...prev,{title:film.title,year:film.year}]);};
 
-// Unified film source: TMDB web when a key is set, otherwise the offline engine.
+// Unified film source: live web catalogue (iTunes), topped up / fallen back to the offline engine.
 const getFilms=async(a,count,excl)=>{
-if(tmdbKey){try{const f=await tmdbDiscover(tmdbKey,a,count,excl,lbTitles());if(f&&f.length)return f;}catch(e){}}
-if(!tmdbKey)await new Promise(r=>setTimeout(r,420));
+try{const f=await itunesDiscover(a,count,excl,lbTitles());if(f&&f.length>=count)return f;
+// If the web returned too few, top up from the offline library
+if(f&&f.length){const need=count-f.length;const have=f.map(x=>x.title);const extra=pickFilms(a,need,[...excl,...have],lbTitles());return [...f,...extra];}
+}catch(e){}
 return pickFilms(a,count,excl,lbTitles());
 };
 
@@ -1398,7 +1349,7 @@ return<Shell><Hdr title="Head to Head" onBack={()=>{setPhase('results');setH2h(n
 /* ===== LIGHTNING PICK ===== */
 const doLightning=async()=>{
 setPhase('loading');setCurrentMode('lightning');
-if(tmdbKey){try{const f=await tmdbRandomGreat(tmdbKey,dis,lbTitles());if(f){setMovies({reason:'One excellent film, no questions asked.',films:[f]});setPhase('results');return;}}catch(e){}}
+try{const f=await itunesRandomGreat(dis,lbTitles());if(f){setMovies({reason:'One excellent film, no questions asked.',films:[f]});setPhase('results');return;}}catch(e){}
 await new Promise(r=>setTimeout(r,450));
 const excl=dis, lbT=lbTitles();
 const pool=FILM_DB.filter(f=>!excl.includes(f.title)&&!lbT.includes(f.title)&&(f.cal.includes('critics fave')||f.cal.includes('oscar winner')||f.cal.includes('cult classic')));
@@ -1413,7 +1364,7 @@ setRouletteSpinning(true);
 const deg=1800+Math.random()*720;setRouletteDeg(deg);
 setTimeout(async()=>{
 setRouletteSpinning(false);setPhase('loading');
-if(tmdbKey){try{const f=await tmdbRandomGreat(tmdbKey,dis,lbTitles());if(f){setMovies({reason:'The wheel has spoken!',films:[f]});setPhase('results');return;}}catch(e){}}
+try{const f=await itunesRandomGreat(dis,lbTitles());if(f){setMovies({reason:'The wheel has spoken!',films:[f]});setPhase('results');return;}}catch(e){}
 await new Promise(r=>setTimeout(r,350));
 const pick=FILM_DB[Math.floor(Math.random()*FILM_DB.length)];
 setMovies({reason:'The wheel has spoken!',films:[toFilmObj(pick,['the wheel has spoken'])]});
@@ -1424,13 +1375,13 @@ setPhase('results');
 /* ===== FILM CALENDAR ===== */
 const doCalendar=async()=>{
 setPhase('loading');setCurrentMode('calendar');
-if(tmdbKey){try{
-const fri=(await getFilms({tone:'Fast & Relentless',calibre:'Crowd Pleaser'},1,dis))[0];
+try{
+const fri=(await getFilms({genre:'Action',tone:'Fast & Relentless'},1,dis))[0];
 const sat=(await getFilms({tone:'Feel-Good'},1,[fri&&fri.title].filter(Boolean).concat(dis)))[0];
-const sun=(await getFilms({tone:'Heartwarming',pacing:'Slow Burn'},1,[fri,sat].filter(Boolean).map(f=>f.title).concat(dis)))[0];
+const sun=(await getFilms({genre:'Drama',tone:'Heartwarming'},1,[fri,sat].filter(Boolean).map(f=>f.title).concat(dis)))[0];
 const films=[fri,sat,sun].filter(Boolean).map((f,i)=>({...f,slot:['Friday Night','Saturday Afternoon','Sunday Evening'][i]}));
 if(films.length===3){setMovies({reason:'A full weekend, sorted.',films});setCustomResults({type:'calendar'});setPhase('results');return;}
-}catch(e){}}
+}catch(e){}
 await new Promise(r=>setTimeout(r,450));
 const used=new Set();
 const pickSlot=slot=>{const candidates=FILM_DB.filter(f=>f.slot===slot&&!used.has(f.title));const f=(candidates.length?candidates:FILM_DB)[Math.floor(Math.random()*(candidates.length?candidates.length:FILM_DB.length))];used.add(f.title);return f;};
@@ -1519,13 +1470,13 @@ const films=await getFilms(a,3,excl);
 data={reason:buildReason(a,films),films};
 setMovies(data);setCustomResults({type:'quick',data});
 }else if(mode==='actor'){
-if(tmdbKey){try{const w=await tmdbActor(tmdbKey,answers.actor||'');if(w&&w.films&&w.films.length){setCustomResults({type:'actor',data:w});setPhase('results');return;}}catch(e){}}
+try{const w=await itunesActor(answers.actor||'');if(w&&w.films&&w.films.length){setCustomResults({type:'actor',data:w});setPhase('results');return;}}catch(e){}
 data=genActor(answers); setCustomResults({type:'actor',data});
 }else if(mode==='family'){
-if(tmdbKey){try{const films=await getFilms({genre:'Family',age:answers.adults&&/kid/i.test(answers.adults)?'U':'PG'},3,excl);if(films.length){films.forEach(f=>{f.parentNote=`Rated ${f.ageRating||'—'}. Have a quick look before showing very young children.`;});setCustomResults({type:'family',data:{ages:answers.ages||'the whole family',films}});setPhase('results');return;}}catch(e){}}
+try{const films=await getFilms({genre:'Family',who:'Family / Kids',age:'PG'},3,excl);if(films.length){films.forEach(f=>{f.parentNote=`Rated ${f.ageRating||'—'}. Have a quick look before showing very young children.`;});setCustomResults({type:'family',data:{ages:answers.ages||'the whole family',films}});setPhase('results');return;}}catch(e){}
 data=genFamily(answers,excl,lbT); setCustomResults({type:'family',data});
 }else if(mode==='double'){
-if(tmdbKey){try{const films=await getFilms({genre:answers.genre,era:answers.era},2,excl);if(films.length===2){setCustomResults({type:'double',data:{theme:'A double bill',whyTheyPair:`Both lean into a similar ${stripEmoji(answers.genre||'genre')} mood — a natural pairing.`,watchOrder:`Watch ${films[0].title} first, then ${films[1].title}.`,films}});setPhase('results');return;}}catch(e){}}
+try{const films=await getFilms({genre:answers.genre,era:answers.era},2,excl);if(films.length===2){setCustomResults({type:'double',data:{theme:'A double bill',whyTheyPair:`Both lean into a similar ${stripEmoji(answers.genre||'genre')} mood — a natural pairing.`,watchOrder:`Watch ${films[0].title} first, then ${films[1].title}.`,films}});setPhase('results');return;}}catch(e){}
 data=genDouble(answers,excl,lbT); setCustomResults({type:'double',data});
 }else if(mode==='party'){ data=genParty(answers); setCustomResults({type:'party',data}); }
 else if(mode==='debrief'){ data=genDebrief(answers); setCustomResults({type:'debrief',data}); }
@@ -1755,8 +1706,7 @@ onMouseOver={e=>e.currentTarget.style.borderColor=m.col} onMouseOut={e=>e.curren
 </button>)}
 </div>}
 
-{tmdbKey?<p style={{...sty.tert,textAlign:'center',marginTop:20,marginBottom:12,fontSize:12,color:'#4ade80'}}>🌐 Web mode on — pulling films live from TMDB</p>
-:<button onClick={()=>{setKeyStatus('');setPhase('apikey')}} style={{...sty.card,marginTop:20,marginBottom:12,cursor:'pointer',textAlign:'center',width:'100%',display:'block'}}><span style={{fontSize:13,color:'#e8a948'}}>🌐 Want unlimited films from the web? Turn on web mode →</span></button>}
+<p style={{...sty.tert,textAlign:'center',marginTop:20,marginBottom:12,fontSize:12}}>🌐 Pulls films from the web — no sign-up, no key, nothing to set up</p>
 </Shell>);
 
 /* ===== AUTH SCREEN (login / sign up) ===== */
@@ -1798,7 +1748,6 @@ return<Shell><Hdr title="Account" onBack={()=>setPhase('home')}/>
 <button onClick={()=>setPhase('favourites')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>❤️</span><span style={{flex:1,fontWeight:600}}>Your Favourites</span><span style={sty.tert}>{favourites.length} →</span></button>
 <button onClick={()=>setPhase('history')} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>🕘</span><span style={{flex:1,fontWeight:600}}>Watch History</span><span style={sty.tert}>{seen.length} →</span></button>
 <button onClick={()=>{setLbReturn('account');setPhase('lb_standalone')}} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>📋</span><span style={{flex:1,fontWeight:600}}>Letterboxd Import</span><span style={sty.tert}>{lb.length} →</span></button>
-<button onClick={()=>{setKeyStatus('');setPhase('apikey')}} style={{...sty.card,display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}><span style={{fontSize:20}}>🌐</span><span style={{flex:1,fontWeight:600}}>Web films (TMDB)</span><span style={{...sty.tert,color:tmdbKey?'#4ade80':'#9a96b0'}}>{tmdbKey?'On ✓':'Off →'}</span></button>
 
 {isLoggedIn?<div style={{marginTop:16}}>
 <Btn full onClick={doLogOut}>Log out</Btn>
@@ -1809,38 +1758,6 @@ return<Shell><Hdr title="Account" onBack={()=>setPhase('home')}/>
 <p style={{...sty.tert,textAlign:'center',marginTop:16,fontSize:12}}>Your favourites are saved as a guest on this device. Create an account to keep them separate.</p>
 </div>}
 </div></Shell>};
-
-/* ===== API KEY (TMDB) SETUP SCREEN ===== */
-const renderApiKey=()=>(
-<Shell><Hdr title="Web Films" onBack={()=>setPhase('account')}/>
-<div style={{animation:'fu 0.4s ease',padding:'8px 0'}}>
-<div style={{textAlign:'center',marginBottom:16}}>
-<div style={{fontSize:44,marginBottom:8}}>🌐</div>
-<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24}}>Pull films from the web</h2>
-<p style={{...sty.sub,marginTop:6}}>Connect a free TMDB key to unlock thousands of films with real posters — instead of the built-in offline list.</p>
-</div>
-
-{tmdbKey?<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.25)',borderRadius:12,padding:14,marginBottom:16}}>
-<p style={{color:'#4ade80',fontWeight:600}}>✅ Web mode is on</p>
-<p style={{...sty.tert,marginTop:4}}>The app is pulling films live from TMDB. You can update or remove your key below.</p>
-</div>:null}
-
-<div style={sty.card}>
-<p style={{fontWeight:600,marginBottom:8}}>How to get your free key (once, ~2 min)</p>
-<ol style={{...sty.sub,paddingLeft:18,lineHeight:1.8}}>
-<li>Go to <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener">themoviedb.org/signup</a> and make a free account.</li>
-<li>Open <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Settings → API</a> and request a key (choose “Developer”, it’s instant &amp; free — no card).</li>
-<li>Copy the <b>API Key (v3 auth)</b> and paste it below.</li>
-</ol>
-</div>
-
-<input style={{...sty.input,marginTop:12}} value={keyInput} onChange={e=>setKeyInput(e.target.value)} placeholder="Paste your TMDB API key here" autoCapitalize="none"/>
-{keyStatus&&<p style={{fontSize:14,marginTop:10,color:keyStatus.startsWith('✅')?'#4ade80':keyStatus.startsWith('⚠️')?'#e85454':'#c7c3db'}}>{keyStatus}</p>}
-<Btn primary full onClick={saveTmdbKey} style={{marginTop:12}}>{tmdbKey?'Update key':'Connect'}</Btn>
-{tmdbKey&&<Btn full onClick={clearTmdbKey} style={{marginTop:8,color:'#e85454',borderColor:'rgba(232,84,84,0.3)'}}>Turn off web mode</Btn>}
-<Btn onClick={()=>setPhase('account')} style={{marginTop:8}}>Done</Btn>
-<p style={{...sty.tert,textAlign:'center',marginTop:16,fontSize:12,lineHeight:1.5}}>🔒 Your key is stored only on this device and is sent only to TMDB. Without a key the app still works fully using its built-in offline library.</p>
-</div></Shell>);
 
 /* ===== FAVOURITES SCREEN ===== */
 const renderFavourites=()=>(
@@ -1904,7 +1821,6 @@ const renderError=()=>(
 if(phase==='home')return renderHome();
 if(phase==='auth')return renderAuth();
 if(phase==='account')return renderAccount();
-if(phase==='apikey')return renderApiKey();
 if(phase==='favourites')return renderFavourites();
 if(phase==='history')return renderHistory();
 if(phase==='error')return renderError();
