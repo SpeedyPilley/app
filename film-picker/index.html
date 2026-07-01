@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#0c0f1a">
 <title>Film Picker</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -10,11 +11,14 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Outfit',sans-serif;background:#0c0f1a;color:#e8e6f0;min-height:100vh;-webkit-font-smoothing:antialiased}
+body{font-family:'Outfit',sans-serif;background:#0c0f1a;color:#f1f0f7;min-height:100vh;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
-a{color:#e8a948;text-decoration:none}
+a{color:#f0c06e;text-decoration:none}
+button{-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(0.97)}
+input::placeholder,textarea::placeholder{color:#7d7994}
 @keyframes fu{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fi{from{opacity:0}to{opacity:1}}
 @keyframes si{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
@@ -692,15 +696,15 @@ const sty={
 shell:{minHeight:'100vh',background:'linear-gradient(180deg,#0c0f1a 0%,#141829 100%)',maxWidth:480,margin:'0 auto',padding:16,position:'relative'},
 hdr:{position:'sticky',top:0,zIndex:100,backdropFilter:'blur(12px)',background:'rgba(12,15,26,0.8)',margin:'-16px -16px 16px',padding:'12px 16px',display:'flex',alignItems:'center',borderBottom:'1px solid rgba(255,255,255,0.06)'},
 hdrTitle:{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:600,flex:1,textAlign:'center',marginRight:32},
-backBtn:{background:'none',border:'none',color:'#9b97b0',fontSize:20,cursor:'pointer',padding:'4px 8px',width:32},
-card:{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:16,padding:16,marginBottom:12},
+backBtn:{background:'none',border:'none',color:'#d5d2e6',fontSize:20,cursor:'pointer',padding:'4px 8px',width:32},
+card:{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:16,padding:16,marginBottom:12},
 btnP:{background:'linear-gradient(135deg,#e8a948,#f0c06e)',color:'#0c0f1a',border:'none',padding:'14px 24px',borderRadius:12,cursor:'pointer',fontFamily:"'Outfit',sans-serif",fontSize:15,fontWeight:600,width:'100%',textAlign:'center'},
-btnS:{background:'transparent',border:'1px solid rgba(255,255,255,0.15)',color:'#e8e6f0',padding:'12px 24px',borderRadius:12,cursor:'pointer',fontFamily:"'Outfit',sans-serif",fontSize:15,width:'100%',textAlign:'center'},
+btnS:{background:'transparent',border:'1px solid rgba(255,255,255,0.18)',color:'#f1f0f7',padding:'12px 24px',borderRadius:12,cursor:'pointer',fontFamily:"'Outfit',sans-serif",fontSize:15,width:'100%',textAlign:'center'},
 badge:{padding:'4px 10px',borderRadius:8,fontSize:13,fontWeight:500,display:'inline-block'},
-sub:{color:'#9b97b0',fontSize:14},
-tert:{color:'#6b6780',fontSize:13},
-input:{width:'100%',padding:'12px 16px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:12,color:'#e8e6f0',fontFamily:"'Outfit',sans-serif",fontSize:15,outline:'none'},
-chip:{padding:'6px 12px',borderRadius:20,fontSize:13,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#9b97b0',cursor:'pointer',whiteSpace:'nowrap'},
+sub:{color:'#c7c3db',fontSize:14},
+tert:{color:'#9a96b0',fontSize:13},
+input:{width:'100%',padding:'12px 16px',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:12,color:'#f1f0f7',fontFamily:"'Outfit',sans-serif",fontSize:15,outline:'none'},
+chip:{padding:'6px 12px',borderRadius:20,fontSize:13,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.15)',color:'#c7c3db',cursor:'pointer',whiteSpace:'nowrap'},
 progOuter:{height:3,background:'rgba(255,255,255,0.06)',borderRadius:3,marginBottom:8},
 progInner:{height:'100%',background:'linear-gradient(90deg,#e8a948,#f0c06e)',borderRadius:3,transition:'width 0.3s'}
 };
@@ -720,7 +724,7 @@ return<div style={{textAlign:'center',padding:'80px 20px',animation:'fi 0.3s eas
 
 const StreamCheck=({sel,onToggle})=>{
 const allSel=sel.length===0;
-return<div><div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>{STREAM_NAMES.map(s=><button key={s} onClick={()=>onToggle(s)} style={{...sty.chip,background:sel.includes(s)?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:sel.includes(s)?'#e8a948':'rgba(255,255,255,0.1)',color:sel.includes(s)?'#e8a948':'#9b97b0'}}>{s}</button>)}</div><button onClick={()=>onToggle('ALL')} style={{...sty.chip,background:allSel?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:allSel?'#e8a948':'rgba(255,255,255,0.1)',color:allSel?'#e8a948':'#9b97b0'}}>All / Don't Mind</button></div>};
+return<div><div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>{STREAM_NAMES.map(s=><button key={s} onClick={()=>onToggle(s)} style={{...sty.chip,background:sel.includes(s)?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:sel.includes(s)?'#e8a948':'rgba(255,255,255,0.1)',color:sel.includes(s)?'#e8a948':'#c7c3db'}}>{s}</button>)}</div><button onClick={()=>onToggle('ALL')} style={{...sty.chip,background:allSel?'rgba(232,169,72,0.15)':'rgba(255,255,255,0.06)',borderColor:allSel?'#e8a948':'rgba(255,255,255,0.1)',color:allSel?'#e8a948':'#c7c3db'}}>All / Don't Mind</button></div>};
 
 /* ===== WIZARD COMPONENT ===== */
 const Wizard=({icon,title,steps,onDone,strSel,onStrToggle})=>{
@@ -762,7 +766,7 @@ onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.cu
 </div></Shell>};
 
 /* ===== FILM CARD (FC) ===== */
-const FC=({film,idx=0,onSeenIt,onCompare,comparing,compact,loading})=>{
+const FC=({film,idx=0,onSeenIt,onCompare,comparing,compact,loading,favourited,onToggleFavourite})=>{
 const[showWhy,setShowWhy]=useState(false);
 const g=POSTER_GRADS[idx%3];
 if(!film)return null;
@@ -772,6 +776,7 @@ return<div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ea
 <div style={{height:180,background:`linear-gradient(135deg,${g[0]},${g[1]})`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',padding:20}}>
 <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:'#fff',textAlign:'center',textShadow:'0 2px 12px rgba(0,0,0,0.3)',maxWidth:'80%'}}>{t}</div>
 {film.runtime&&<div style={{position:'absolute',top:12,right:12,background:'rgba(0,0,0,0.5)',padding:'4px 10px',borderRadius:8,fontSize:12,color:'#fff'}}>{film.runtime}</div>}
+{onToggleFavourite&&<button onClick={()=>onToggleFavourite(film)} style={{position:'absolute',top:12,left:12,background:'rgba(0,0,0,0.5)',border:'none',borderRadius:'50%',width:32,height:32,fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{favourited?'❤️':'🤍'}</button>}
 </div>
 <div style={{padding:16}}>
 <div style={{fontSize:20,fontWeight:700}}>{t}</div>
@@ -789,8 +794,8 @@ return<div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ea
 {film.parentNote&&<div style={{background:'rgba(99,102,241,0.08)',borderRadius:10,padding:12,marginTop:12}}><p style={{fontSize:13,color:'#818cf8'}}>👪 {film.parentNote}</p></div>}
 {!compact&&<>
 <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:16,paddingTop:12,display:'flex',gap:8,flexWrap:'wrap'}}>
-{film.whyThisFilm&&<button onClick={()=>setShowWhy(!showWhy)} style={{...sty.chip,color:showWhy?'#e8a948':'#9b97b0',borderColor:showWhy?'#e8a948':'rgba(255,255,255,0.1)'}}>💡 Why this film?</button>}
-{onCompare&&<button onClick={onCompare} style={{...sty.chip,color:comparing?'#e8a948':'#9b97b0',borderColor:comparing?'#e8a948':'rgba(255,255,255,0.1)'}}>⚖️ Compare</button>}
+{film.whyThisFilm&&<button onClick={()=>setShowWhy(!showWhy)} style={{...sty.chip,color:showWhy?'#e8a948':'#c7c3db',borderColor:showWhy?'#e8a948':'rgba(255,255,255,0.1)'}}>💡 Why this film?</button>}
+{onCompare&&<button onClick={onCompare} style={{...sty.chip,color:comparing?'#e8a948':'#c7c3db',borderColor:comparing?'#e8a948':'rgba(255,255,255,0.1)'}}>⚖️ Compare</button>}
 {onSeenIt&&<button onClick={onSeenIt} style={{...sty.chip,background:'rgba(232,84,84,0.1)',color:'#e85454',borderColor:'rgba(232,84,84,0.2)'}}>👁️ Seen it</button>}
 </div>
 {showWhy&&film.whyThisFilm&&<div style={{background:'rgba(232,169,72,0.08)',borderRadius:10,padding:12,marginTop:8,animation:'fi 0.3s ease'}}><p style={{fontSize:14,color:'#e8a948'}}>{film.whyThisFilm}</p></div>}
@@ -871,10 +876,45 @@ const[currentMode,setCurrentMode]=useState(null);
 const[selCustomText,setSelCustomText]=useState('');
 const[selShowCust,setSelShowCust]=useState(false);
 const[textInput,setTextInput]=useState('');
+const[genreSearch,setGenreSearch]=useState('');
+const[profileName,setProfileName]=useState('');
+const[favourites,setFavourites]=useState([]);
+const[savedToast,setSavedToast]=useState(false);
+const[profileLoaded,setProfileLoaded]=useState(false);
 
-const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('')};
+const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('');setGenreSearch('')};
 
 const lbTitles=()=>lb.map(f=>f.title);
+
+/* ===== LOCAL PROFILE (browser-only, no server, no login) ===== */
+const PROFILE_KEY='filmpicker_profile_v1';
+useEffect(()=>{
+try{
+const raw=localStorage.getItem(PROFILE_KEY);
+if(raw){
+const p=JSON.parse(raw);
+if(p.name)setProfileName(p.name);
+if(Array.isArray(p.favourites))setFavourites(p.favourites);
+if(Array.isArray(p.strSel))setStrSel(p.strSel);
+if(Array.isArray(p.lb))setLb(p.lb);
+}
+}catch(e){}
+setProfileLoaded(true);
+},[]);
+
+useEffect(()=>{
+if(!profileLoaded)return;
+try{localStorage.setItem(PROFILE_KEY,JSON.stringify({name:profileName,favourites,strSel,lb}));}catch(e){}
+},[profileName,favourites,strSel,lb,profileLoaded]);
+
+const isFavourited=film=>favourites.some(f=>f.title===film.title&&f.year===film.year);
+const toggleFavourite=film=>{
+setFavourites(prev=>{
+if(prev.some(f=>f.title===film.title&&f.year===film.year))return prev.filter(f=>!(f.title===film.title&&f.year===film.year));
+setSavedToast(true);setTimeout(()=>setSavedToast(false),1800);
+return [...prev,film];
+});
+};
 
 const fetchFilms=(a,count=3)=>{
 setPhase('loading');setLastA(a);
@@ -932,15 +972,19 @@ const strToggle=s=>{if(s==='ALL'){setStrSel([])}else{setStrSel(p=>p.includes(s)?
 /* ===== FULL PICKER SELECT QUESTIONS ===== */
 const renderSelectQ=()=>{
 const q=SEL_QS[step];
-const advance=val=>{setSelCustomText('');setSelShowCust(false);setAns({...ans,[q.id]:val});if(step<SEL_QS.length-1)setStep(step+1);else setStep(SEL_QS.length)};
-const skipQ=()=>{setSelCustomText('');setSelShowCust(false);if(step<SEL_QS.length-1)setStep(step+1);else setStep(SEL_QS.length)};
+const advance=val=>{setSelCustomText('');setSelShowCust(false);setGenreSearch('');setAns({...ans,[q.id]:val});if(step<SEL_QS.length-1)setStep(step+1);else setStep(SEL_QS.length)};
+const skipQ=()=>{setSelCustomText('');setSelShowCust(false);setGenreSearch('');if(step<SEL_QS.length-1)setStep(step+1);else setStep(SEL_QS.length)};
+const isBigList=q.opts.length>10;
+const filteredOpts=isBigList&&genreSearch.trim()?q.opts.filter(o=>stripEmoji(o).toLowerCase().includes(genreSearch.trim().toLowerCase())):q.opts;
 
-return<Shell><Hdr title="Film Picker" onBack={step>0?()=>{setSelCustomText('');setSelShowCust(false);setStep(step-1)}:()=>home()}/><ProgBar step={step+1} total={SEL_QS.length+TEXT_QS.length}/>
+return<Shell><Hdr title="Film Picker" onBack={step>0?()=>{setSelCustomText('');setSelShowCust(false);setGenreSearch('');setStep(step-1)}:()=>home()}/><ProgBar step={step+1} total={SEL_QS.length+TEXT_QS.length}/>
 <div key={step} style={{animation:'si 0.3s ease',padding:'12px 0'}}>
 <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,textAlign:'center',marginBottom:6}}>{q.q}</h2>
 {q.sub&&<p style={{...sty.sub,textAlign:'center',marginBottom:12}}>{q.sub}</p>}
+{isBigList&&<input style={{...sty.input,marginBottom:12}} value={genreSearch} onChange={e=>setGenreSearch(e.target.value)} placeholder="🔎 Search options..."/>}
 <div style={{display:'grid',gridTemplateColumns:q.cols===2?'1fr 1fr':'1fr',gap:8}}>
-{q.opts.map((o,i)=><button key={i} onClick={()=>advance(o)} style={{...sty.card,cursor:'pointer',textAlign:'center',fontSize:14,padding:'12px 8px'}} onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{o}</button>)}
+{filteredOpts.map((o,i)=><button key={i} onClick={()=>advance(o)} style={{...sty.card,cursor:'pointer',textAlign:'center',fontSize:14,padding:'12px 8px'}} onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>{o}</button>)}
+{isBigList&&filteredOpts.length===0&&<p style={{...sty.tert,gridColumn:'1 / -1',textAlign:'center',padding:'12px 0'}}>No matches — try "Type your own" below.</p>}
 </div>
 <div style={{marginTop:12}}><button style={{...sty.tert,background:'none',border:'none',cursor:'pointer',fontSize:13}} onClick={()=>setSelShowCust(!selShowCust)}>✏️ Type your own</button>
 {selShowCust&&<div style={{display:'flex',gap:8,marginTop:8}}><input style={{...sty.input,flex:1}} value={selCustomText} onChange={e=>setSelCustomText(e.target.value)} placeholder="Type here..." onKeyDown={e=>e.key==='Enter'&&selCustomText.trim()&&advance(selCustomText.trim())}/><Btn primary onClick={()=>selCustomText.trim()&&advance(selCustomText.trim())} style={{width:'auto',padding:'12px 16px'}}>Use</Btn></div>}
@@ -980,7 +1024,10 @@ return<Shell><Hdr title="Your Picks" onBack={home}/>
 {movies.films.map((f,i)=><FC key={f.title+i} film={f} idx={i} loading={rIdx===i}
 onSeenIt={()=>replaceFn(i)}
 onCompare={()=>{const ns=new Set(cmp);if(ns.has(i))ns.delete(i);else{if(ns.size>=2)return;ns.add(i)}setCmp(ns)}}
-comparing={cmp.has(i)}/>)}
+comparing={cmp.has(i)}
+favourited={isFavourited(f)}
+onToggleFavourite={toggleFavourite}/>)}
+{savedToast&&<p style={{textAlign:'center',color:'#4ade80',fontSize:13,marginBottom:8,animation:'fi 0.2s ease'}}>❤️ Saved to favourites</p>}
 
 {cmpArr.length===2&&<Btn primary onClick={compareFilms} style={{marginBottom:16}}>⚖️ Compare: {movies.films[cmpArr[0]]?.title} vs {movies.films[cmpArr[1]]?.title}</Btn>}
 
@@ -1218,7 +1265,7 @@ return<Shell><Hdr title="Film DNA" onBack={home}/>
 </div>
 {d.connection&&<div style={sty.card}><h3 style={{color:'#14b8a6',marginBottom:8}}>The Connection</h3><p style={sty.sub}>{d.connection}</p></div>}
 {d.sharedDNA&&<div style={sty.card}><h3 style={{color:'#e8a948',marginBottom:8}}>Shared DNA</h3>{d.sharedDNA.map((p,i)=><p key={i} style={{...sty.sub,marginBottom:4}}>🧬 {p}</p>)}</div>}
-{d.recommended&&<div><h3 style={{fontFamily:"'Playfair Display',serif",margin:'16px 0 8px'}}>You might also love...</h3><FC film={d.recommended} idx={0} compact/></div>}
+{d.recommended&&<div><h3 style={{fontFamily:"'Playfair Display',serif",margin:'16px 0 8px'}}>You might also love...</h3><FC film={d.recommended} idx={0} compact favourited={isFavourited(d.recommended)} onToggleFavourite={toggleFavourite}/></div>}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
 
 if(type==='double'){
@@ -1227,7 +1274,7 @@ return<Shell><Hdr title="Double Bill" onBack={home}/>
 <div style={{animation:'fu 0.4s ease'}}>
 {d.theme&&<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:8}}>🎭 {d.theme}</h2>}
 {d.whyTheyPair&&<p style={{...sty.sub,textAlign:'center',marginBottom:16,fontStyle:'italic'}}>"{d.whyTheyPair}"</p>}
-{films.map((f,i)=><FC key={i} film={f} idx={i} compact/>)}
+{films.map((f,i)=><FC key={i} film={f} idx={i} compact favourited={isFavourited(f)} onToggleFavourite={toggleFavourite}/>)}
 {d.watchOrder&&<div style={{...sty.card,background:'rgba(168,85,247,0.08)',borderColor:'rgba(168,85,247,0.2)'}}><p style={{fontSize:14,color:'#a855f7'}}>📋 {d.watchOrder}</p></div>}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
 
@@ -1259,7 +1306,7 @@ const films=d.films||movies?.films||[];
 return<Shell><Hdr title="Soundtrack Finder" onBack={home}/>
 <div style={{animation:'fu 0.4s ease'}}>
 {d.vibe&&<h2 style={{fontFamily:"'Playfair Display',serif",textAlign:'center',marginBottom:16}}>🎵 {d.vibe}</h2>}
-{films.map((f,i)=><FC key={i} film={f} idx={i}/>)}
+{films.map((f,i)=><FC key={i} film={f} idx={i} favourited={isFavourited(f)} onToggleFavourite={toggleFavourite}/>)}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
 
 if(type==='autopsy'){
@@ -1270,15 +1317,15 @@ return<Shell><Hdr title="Film Autopsy" onBack={home}/>
 {d.diagnosis&&<div style={{...sty.card,background:'rgba(232,84,84,0.06)',borderColor:'rgba(232,84,84,0.15)'}}><h3 style={{color:'#e85454',marginBottom:8}}>💀 Diagnosis</h3><p style={sty.sub}>{d.diagnosis}</p></div>}
 {d.whatYouWanted&&<div style={{...sty.card,background:'rgba(232,169,72,0.06)',borderColor:'rgba(232,169,72,0.15)'}}><h3 style={{color:'#e8a948',marginBottom:8}}>💭 What You Wanted</h3><p style={sty.sub}>{d.whatYouWanted}</p></div>}
 <h3 style={{fontFamily:"'Playfair Display',serif",margin:'16px 0 8px'}}>💊 The Fix</h3>
-{fixes.map((f,i)=><FC key={i} film={f} idx={i}/>)}
+{fixes.map((f,i)=><FC key={i} film={f} idx={i} favourited={isFavourited(f)} onToggleFavourite={toggleFavourite}/>)}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
 
 if(type==='swap'){
 return<Shell><Hdr title="Mood Swap" onBack={home}/>
 <div style={{animation:'fu 0.4s ease'}}>
 {d.original&&<div style={sty.card}><h3 style={{marginBottom:8}}>{d.original.title}</h3><p style={sty.sub}>{d.original.analysis}</p></div>}
-<div style={{textAlign:'center',margin:'16px 0',color:'#6b6780'}}>🔄 ─── Flipped ─── 🔄</div>
-{d.opposite&&<FC film={d.opposite} idx={1}/>}
+<div style={{textAlign:'center',margin:'16px 0',color:'#9a96b0'}}>🔄 ─── Flipped ─── 🔄</div>
+{d.opposite&&<FC film={d.opposite} idx={1} favourited={isFavourited(d.opposite)} onToggleFavourite={toggleFavourite}/>}
 {d.whyOpposite&&<div style={{...sty.card,background:'rgba(16,185,129,0.06)',borderColor:'rgba(16,185,129,0.15)'}}><p style={{fontSize:14,color:'#10b981'}}>{d.whyOpposite}</p></div>}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
 
@@ -1287,7 +1334,7 @@ const films=d.films||movies?.films||[];
 return<Shell><Hdr title="Family Film Picker" onBack={home}/>
 <div style={{animation:'fu 0.4s ease'}}>
 {d.ages&&<div style={{...sty.badge,background:'rgba(244,114,182,0.15)',color:'#f472b6',marginBottom:16,display:'inline-block'}}>👶 Ages: {d.ages}</div>}
-{films.map((f,i)=><FC key={i} film={f} idx={i}/>)}
+{films.map((f,i)=><FC key={i} film={f} idx={i} favourited={isFavourited(f)} onToggleFavourite={toggleFavourite}/>)}
 <Btn onClick={home} style={{marginTop:16}}>🏠 Home</Btn></div></Shell>}
 
 return renderResults()};
@@ -1295,10 +1342,11 @@ return renderResults()};
 /* ===== HOME SCREEN ===== */
 const renderHome=()=>(
 <Shell>
+<button onClick={()=>setPhase('profile')} style={{position:'absolute',top:16,right:16,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:'50%',width:40,height:40,cursor:'pointer',fontSize:17,color:'#f1f0f7'}}>👤</button>
 <div style={{textAlign:'center',paddingTop:60,animation:'fu 0.5s ease'}}>
 <div style={{fontSize:64,marginBottom:16,animation:'glow 2s ease-in-out infinite',display:'inline-block',borderRadius:'50%'}}>🎬</div>
 <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,marginBottom:8}}>Film Picker</h1>
-<p style={sty.sub}>Find something to watch tonight</p>
+<p style={sty.sub}>{profileName?`Welcome back, ${profileName}`:'Find something to watch tonight'}</p>
 <p style={{...sty.tert,marginTop:8}}>✨ Offline mode — curated picks, no API key needed</p>
 
 {lb.length>0&&<div style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:12,padding:'10px 16px',marginTop:16,display:'inline-flex',alignItems:'center',gap:8}}>
@@ -1338,6 +1386,35 @@ const renderRoulette=()=>(
 <Btn onClick={home} style={{marginTop:12,maxWidth:240,margin:'12px auto 0'}}>🏠 Home</Btn>
 </div></Shell>);
 
+/* ===== PROFILE SCREEN (local only — saved in this browser, no login) ===== */
+const renderProfile=()=>{
+return<Shell><Hdr title="My Profile" onBack={()=>setPhase('home')}/>
+<div style={{animation:'fu 0.4s ease',padding:'8px 0'}}>
+<div style={{textAlign:'center',marginBottom:20}}>
+<div style={{fontSize:48,marginBottom:8}}>👤</div>
+<p style={sty.tert}>Saved only in this browser — no account, no login, no syncing.</p>
+</div>
+<div style={sty.card}>
+<p style={{fontWeight:600,marginBottom:8}}>Your name</p>
+<input style={sty.input} value={profileName} onChange={e=>setProfileName(e.target.value)} placeholder="What should we call you?"/>
+</div>
+<div style={sty.card}>
+<p style={{fontWeight:600,marginBottom:8}}>❤️ Favourites ({favourites.length})</p>
+{favourites.length===0?<p style={sty.tert}>Tap the heart on any film card to save it here.</p>:
+favourites.map((f,i)=><div key={f.title+i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderTop:i>0?'1px solid rgba(255,255,255,0.06)':'none'}}>
+<div><div style={{fontWeight:600,fontSize:14}}>{f.title}</div><div style={sty.tert}>{f.year} · {f.genre}</div></div>
+<button onClick={()=>toggleFavourite(f)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#e85454'}}>✕</button>
+</div>)}
+</div>
+<div style={sty.card}>
+<p style={{fontWeight:600,marginBottom:8}}>📋 Letterboxd data</p>
+<p style={sty.tert}>{lb.length>0?`${lb.length} films imported`:'No Letterboxd data imported yet'}</p>
+{lb.length>0&&<button onClick={()=>setLb([])} style={{...sty.chip,marginTop:8,color:'#e85454',borderColor:'rgba(232,84,84,0.2)'}}>Clear Letterboxd data</button>}
+</div>
+<Btn onClick={()=>{if(confirm('Clear your name, favourites and Letterboxd data from this browser?')){setProfileName('');setFavourites([]);setLb([]);setStrSel([]);}}} style={{marginTop:8,color:'#e85454',borderColor:'rgba(232,84,84,0.3)'}}>🗑️ Clear all saved data</Btn>
+<Btn primary onClick={()=>setPhase('home')} style={{marginTop:12}}>Done</Btn>
+</div></Shell>};
+
 /* ===== ERROR SCREEN ===== */
 const renderError=()=>(
 <Shell><div style={{textAlign:'center',padding:'80px 20px',animation:'fu 0.4s ease'}}>
@@ -1351,6 +1428,7 @@ const renderError=()=>(
 
 /* ===== PHASE ROUTER ===== */
 if(phase==='home')return renderHome();
+if(phase==='profile')return renderProfile();
 if(phase==='error')return renderError();
 if(phase==='loading')return<Shell><Loader/></Shell>;
 if(phase==='h2h')return renderH2H();
