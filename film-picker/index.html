@@ -471,6 +471,36 @@ if(answers.who)parts.push(stripEmoji(answers.who));
 return parts.length?`Handpicked to match ${parts.join(', ')}.`:`Three great films handpicked for tonight.`;
 };
 
+/* ===== POSTER FETCH — Apple iTunes artwork (free, no key, JSONP so it works from file://) ===== */
+const posterCache={};
+let jsonpN=0;
+const fetchPoster=(title,year)=>new Promise(resolve=>{
+const key=(String(title)+'|'+(year||'')).toLowerCase();
+if(Object.prototype.hasOwnProperty.call(posterCache,key))return resolve(posterCache[key]);
+if(typeof document==='undefined')return resolve(null);
+let done=false;
+const cb='itcb_'+(++jsonpN);
+const cleanup=()=>{try{delete window[cb];}catch(e){}const el=document.getElementById(cb);if(el)el.remove();};
+const finish=v=>{if(done)return;done=true;posterCache[key]=v;cleanup();resolve(v);};
+window[cb]=data=>{
+try{
+const rs=(data&&data.results)||[];
+let best=rs[0];
+if(year){const m=rs.find(r=>r.releaseDate&&String(r.releaseDate).startsWith(String(year)));if(m)best=m;}
+if(best&&best.artworkUrl100)finish(best.artworkUrl100.replace('100x100bb','600x600bb'));
+else finish(null);
+}catch(e){finish(null);}
+};
+try{
+const s=document.createElement('script');
+s.id=cb;
+s.src='https://itunes.apple.com/search?media=movie&entity=movie&limit=6&callback='+cb+'&term='+encodeURIComponent(title);
+s.onerror=()=>finish(null);
+document.head.appendChild(s);
+}catch(e){finish(null);}
+setTimeout(()=>finish(null),6000);
+});
+
 // A single standout film for the home "Tonight's Pick" spotlight
 const featuredPick=()=>{
 const pool=FILM_DB.filter(f=>f.cal.includes('critics fave')||f.cal.includes('oscar winner')||f.cal.includes('crowd pleaser'));
@@ -782,15 +812,19 @@ onMouseOver={e=>e.currentTarget.style.borderColor='#e8a948'} onMouseOut={e=>e.cu
 /* ===== FILM CARD (FC) ===== */
 const FC=({film,idx=0,onSeenIt,onCompare,comparing,compact,loading,favourited,onToggleFavourite})=>{
 const[showWhy,setShowWhy]=useState(false);
+const[poster,setPoster]=useState(null);
 const g=POSTER_GRADS[idx%3];
+useEffect(()=>{let ok=true;setPoster(null);if(film&&film.title)fetchPoster(film.title,film.year).then(u=>{if(ok)setPoster(u)});return()=>{ok=false}},[film&&film.title,film&&film.year]);
 if(!film)return null;
 const t=film.title||'Untitled';
 
 return<div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ease',opacity:loading?0.4:1,transition:'opacity 0.3s'}}>
-<div style={{height:180,background:`linear-gradient(135deg,${g[0]},${g[1]})`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',padding:20}}>
-<div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:'#fff',textAlign:'center',textShadow:'0 2px 12px rgba(0,0,0,0.3)',maxWidth:'80%'}}>{t}</div>
-{film.runtime&&<div style={{position:'absolute',top:12,right:12,background:'rgba(0,0,0,0.5)',padding:'4px 10px',borderRadius:8,fontSize:12,color:'#fff'}}>{film.runtime}</div>}
-{onToggleFavourite&&<button onClick={()=>onToggleFavourite(film)} style={{position:'absolute',top:12,left:12,background:'rgba(0,0,0,0.5)',border:'none',borderRadius:'50%',width:32,height:32,fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{favourited?'❤️':'🤍'}</button>}
+<div style={{height:180,background:`linear-gradient(135deg,${g[0]},${g[1]})`,display:'flex',alignItems:poster?'flex-end':'center',justifyContent:poster?'flex-start':'center',position:'relative',padding:poster?0:20,overflow:'hidden'}}>
+{poster&&<img src={poster} alt={t} onError={()=>setPoster(null)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>}
+{poster&&<div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(0,0,0,0.1) 40%,rgba(0,0,0,0.75) 100%)'}}/>}
+<div style={{position:'relative',fontFamily:"'Playfair Display',serif",fontSize:poster?20:28,fontWeight:700,color:'#fff',textAlign:poster?'left':'center',textShadow:'0 2px 12px rgba(0,0,0,0.5)',maxWidth:poster?'92%':'80%',padding:poster?14:0}}>{t}</div>
+{film.runtime&&<div style={{position:'absolute',top:12,right:12,background:'rgba(0,0,0,0.55)',padding:'4px 10px',borderRadius:8,fontSize:12,color:'#fff'}}>{film.runtime}</div>}
+{onToggleFavourite&&<button onClick={()=>onToggleFavourite(film)} style={{position:'absolute',top:12,left:12,background:'rgba(0,0,0,0.55)',border:'none',borderRadius:'50%',width:32,height:32,fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}>{favourited?'❤️':'🤍'}</button>}
 </div>
 <div style={{padding:16}}>
 <div style={{fontSize:20,fontWeight:700}}>{t}</div>
@@ -903,7 +937,9 @@ const[authPass,setAuthPass]=useState('');
 const[authName,setAuthName]=useState('');
 const[authErr,setAuthErr]=useState('');
 const[tonight,setTonight]=useState(()=>featuredPick());
+const[tonightPoster,setTonightPoster]=useState(null);
 const[lbReturn,setLbReturn]=useState('home');
+useEffect(()=>{let ok=true;setTonightPoster(null);if(tonight&&tonight.title)fetchPoster(tonight.title,tonight.year).then(u=>{if(ok)setTonightPoster(u)});return()=>{ok=false}},[tonight&&tonight.title]);
 
 const home=()=>{setPhase('home');setStep(0);setAns({});setTAns({});setMovies(null);setLastA(null);setRIdx(-1);setSoL(false);setDis([]);setCmp(new Set());setH2h(null);setH2hData(null);setMoreOpen(false);setGroupNames(['','']);setGroupStep(0);setGroupAnswers({});setCustomResults(null);setRouletteSpinning(false);setRouletteDeg(0);setTotStep(0);setTotAnswers([]);setErr(null);setCopied(false);setCurrentMode(null);setSelCustomText('');setSelShowCust(false);setTextInput('');setGenreSearch('')};
 
@@ -1456,10 +1492,12 @@ const renderHome=()=>(
 
 {/* Tonight's Pick spotlight */}
 <div style={{...sty.card,padding:0,overflow:'hidden',animation:'fu 0.4s ease',marginTop:8}}>
-<div style={{height:120,background:`linear-gradient(135deg,${POSTER_GRADS[0][0]},${POSTER_GRADS[0][1]})`,display:'flex',flexDirection:'column',justifyContent:'flex-end',padding:14,position:'relative'}}>
-<span style={{position:'absolute',top:10,left:12,background:'rgba(0,0,0,0.45)',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,letterSpacing:0.5,textTransform:'uppercase'}}>🌙 Tonight's Pick</span>
-<button onClick={()=>{setTonight(featuredPick())}} title="Shuffle" style={{position:'absolute',top:8,right:10,background:'rgba(0,0,0,0.45)',border:'none',borderRadius:'50%',width:30,height:30,cursor:'pointer',fontSize:14,color:'#fff'}}>🔄</button>
-<div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:'#fff',textShadow:'0 2px 12px rgba(0,0,0,0.4)'}}>{tonight.title}</div>
+<div style={{height:tonightPoster?170:140,background:`linear-gradient(135deg,${POSTER_GRADS[0][0]},${POSTER_GRADS[0][1]})`,display:'flex',flexDirection:'column',justifyContent:'flex-end',padding:14,position:'relative',overflow:'hidden'}}>
+{tonightPoster&&<img src={tonightPoster} alt={tonight.title} onError={()=>setTonightPoster(null)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>}
+{tonightPoster&&<div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(0,0,0,0.15) 30%,rgba(0,0,0,0.8) 100%)'}}/>}
+<span style={{position:'absolute',top:10,left:12,zIndex:2,background:'rgba(0,0,0,0.5)',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,letterSpacing:0.5,textTransform:'uppercase'}}>🌙 Tonight's Pick</span>
+<button onClick={()=>{setTonight(featuredPick())}} title="Shuffle" style={{position:'absolute',top:8,right:10,zIndex:2,background:'rgba(0,0,0,0.5)',border:'none',borderRadius:'50%',width:30,height:30,cursor:'pointer',fontSize:14,color:'#fff'}}>🔄</button>
+<div style={{position:'relative',fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:'#fff',textShadow:'0 2px 12px rgba(0,0,0,0.5)'}}>{tonight.title}</div>
 </div>
 <div style={{padding:14}}>
 <div style={sty.sub}>{[tonight.year,tonight.genre,tonight.director].filter(Boolean).join(' · ')}</div>
